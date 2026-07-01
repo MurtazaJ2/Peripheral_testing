@@ -74,7 +74,11 @@ def pytest_cmdline_main(config):
     print("="*60)
     print(f"✅ [HOST] Remote execution complete. Artifact saved: {log_file}")
     
-    # 8. Abort the local pytest run and exit with the Pi's success/fail code
+    # 8. Sync back the .report.json artifact if it was generated
+    sync_back_cmd = f"scp -q {user}@{host}:{remote_dir}/.report.json .report.json 2>/dev/null || true"
+    subprocess.run(sync_back_cmd, shell=True)
+    
+    # 9. Abort the local pytest run and exit with the Pi's success/fail code
     sys.exit(process.returncode)
 
 

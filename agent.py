@@ -1,0 +1,164 @@
+import os
+import json
+import yaml
+from typing import TypedDict, Annotated, List, Dict, Any
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from fabric import Connection
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# --- Graph State Definition ---
+class AgentState(TypedDict):
+    """The State of the BSP Validation Agent."""
+    pytest_report: Dict[str, Any]
+    failed_tests: List[Dict[str, Any]]
+    dmesg_logs: str
+    irq_logs: str
+    diagnosis: str
+    suggested_action: str
+    board_config: Dict[str, Any]
+
+# --- Nodes ---
+
+def load_pytest_report(state: AgentState) -> AgentState:
+    """Reads the JSON output from the latest Pytest run."""
+    print("[Agent] 🔍 Analyzing Pytest Report...")
+    try:
+        with open(".report.json", "r") as f:
+            report = json.load(f)
+            
+        failed_tests = [
+            test for test in report.get("tests", []) 
+            if test.get("outcome") == "failed"
+        ]
+        return {"pytest_report": report, "failed_tests": failed_tests}
+    except FileNotFoundError:
+        print("[Agent] ⚠️ No .report.json found! Ensure tests run with --json-report")
+        return {"pytest_report": {}, "failed_tests": []}
+
+def gather_diagnostics(state: AgentState) -> AgentState:
+    """Uses Fabric to SSH into the Pi and pull live diagnostic data (dmesg, IRQs)."""
+    if not state.get("failed_tests"):
+        print("[Agent] ✅ No failed tests detected. Skipping diagnostics.")
+        return {"dmesg_logs": "", "irq_logs": ""}
+
+    print("[Agent] 🩺 Gathering Live Diagnostics from Hardware...")
+    
+    # Load board config to get SSH credentials
+    with open("boards.yaml", "r") as f:
+        config = yaml.safe_load(f)["raspberry_pi_5"]
+        
+    host = config["remote"]["host"]
+    user = config["remote"]["user"]
+    password = config["remote"].get("password", "")
+    
+    connect_kwargs = {"password": password} if password else {}
+    
+    try:
+        with Connection(host=host, user=user, connect_kwargs=connect_kwargs) as c:
+            dmesg = c.run("dmesg | tail -n 100", hide=True, in_stream=False).stdout
+            irqs = c.run("cat /proc/interrupts", hide=True, in_stream=False).stdout
+            return {"dmesg_logs": dmesg, "irq_logs": irqs}
+    except Exception as e:
+        print(f"[Agent] ❌ SSH Diagnostic Failed: {e}")
+        return {"dmesg_logs": f"Error gathering dmesg: {e}", "irq_logs": ""}
+
+def analyze_failure(state: AgentState) -> AgentState:
+    """Uses LLM to analyze the test failures alongside hardware logs."""
+    if not state.get("failed_tests"):
+        return {"diagnosis": "All tests passed. System is healthy."}
+
+    print("[Agent] 🧠 Reasoning over Hardware Failures...")
+    
+    model_name = os.environ.get("MODEL_NAME", "openai/gpt-oss-120b:free")
+    
+    llm = ChatOpenAI(
+        model=model_name,
+        temperature=0,
+        openai_api_key=os.environ.get("OPENROUTER_API_KEY", "missing_key"),
+        openai_api_base="https://openrouter.ai/api/v1"
+    )
+    
+    prompt = f"""
+    You are an expert Linux Kernel and BSP Validation Engineer.
+    The automated hardware test suite failed on a Raspberry Pi 5.
+    
+    Failed Tests:
+    {json.dumps(state['failed_tests'], indent=2)}
+    
+    Recent dmesg logs:
+    {state['dmesg_logs']}
+    
+    Analyze the logs and the failed tests. Provide a concise root cause analysis (RCA).
+    """
+    
+    response = llm.invoke([SystemMessage(content=prompt)])
+    print(f"\n[DIAGNOSIS]\n{response.content}\n")
+    return {"diagnosis": response.content}
+
+
+def propose_remediation(state: AgentState) -> AgentState:
+    """Generates a standalone Markdown RCA report based on the diagnosis."""
+    if not state.get("failed_tests"):
+        return {"suggested_action": "None"}
+        
+    print("[Agent] 📝 Generating Standalone RCA Report...")
+    
+    report_content = f"# 🚨 BSP Validation Agent RCA Report\n\n"
+    report_content += f"## ❌ Failed Tests\n"
+    for test in state.get("failed_tests", []):
+        report_content += f"- `{test.get('nodeid')}`\n"
+        
+    report_content += f"\n## 🧠 Agent Diagnosis\n"
+    report_content += f"{state.get('diagnosis', 'No diagnosis available.')}\n"
+    
+    report_content += f"\n## 🛠️ Recommended Remediation\n"
+    report_content += f"Review the diagnosis above. If this is a software regression, apply the necessary patches. If it is a physical layer issue, check connections and reboot the hardware.\n"
+    
+    with open("bsp_rca_report.md", "w") as f:
+        f.write(report_content)
+        
+    print("[Agent] ✅ Saved Root Cause Analysis to 'bsp_rca_report.md'")
+    return {"suggested_action": "Report Generated"}
+
+# --- Graph Definition ---
+
+workflow = StateGraph(AgentState)
+
+workflow.add_node("load_pytest", load_pytest_report)
+workflow.add_node("gather_diagnostics", gather_diagnostics)
+workflow.add_node("analyze_failure", analyze_failure)
+workflow.add_node("propose_remediation", propose_remediation)
+
+workflow.set_entry_point("load_pytest")
+
+# If there are no failed tests, we skip diagnostics and analysis
+def should_diagnose(state: AgentState):
+    if state.get("failed_tests"):
+        return "gather_diagnostics"
+    return END
+
+workflow.add_conditional_edges(
+    "load_pytest",
+    should_diagnose,
+    {
+        "gather_diagnostics": "gather_diagnostics",
+        END: END
+    }
+)
+
+workflow.add_edge("gather_diagnostics", "analyze_failure")
+workflow.add_edge("analyze_failure", "propose_remediation")
+workflow.add_edge("propose_remediation", END)
+
+# Compile the graph
+app = workflow.compile()
+
+if __name__ == "__main__":
+    print("\n🚀 Starting Autonomous BSP Validation Agent...")
+    final_state = app.invoke({"board_config": {}})
+    print("\n✅ Agent Execution Complete.")
