@@ -54,32 +54,52 @@ def pytest_cmdline_main(config):
     log_file = f"logs/run_{board_name}_{timestamp}.log"
     print(f"📝 [HOST] Live logs will be saved to: {log_file}")
 
-    # 7. Execute the test, stream to terminal, and write to file simultaneously
+    # 7. Clear tracker on Pi and Execute Tests
+    print(f"🔥 [4/4] Executing test suite on Pi in continuous session mode...")
     args = " ".join(config.invocation_params.args)
-    print(f"🔥 [4/4] Executing test on Pi: pytest {args}\n")
-    print("="*60)
+    subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True)
     
-    run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s'"
-    
+    import time
     with open(log_file, "w") as log:
-        # Popen allows us to read the output line-by-line as it happens
-        process = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in process.stdout:
-            sys.stdout.write(line)  # Print to your laptop's screen
-            log.write(line)         # Write to the local log file
-            log.flush()             # Ensure it writes to disk immediately
+        while True:
+            # Wait for board to be online before starting
+            board_online = False
+            for _ in range(36): # 3 minutes
+                ping_proc = subprocess.run(f"ssh -o ConnectTimeout=3 {user}@{host} 'echo ready'", shell=True, capture_output=True)
+                if ping_proc.returncode == 0:
+                    board_online = True
+                    break
+                print("  ⏳ Waiting for board to become reachable over SSH...")
+                time.sleep(5)
+                
+            if not board_online:
+                print("❌ Board failed to come online. Aborting run.")
+                sys.exit(1)
+
+            run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s'"
+            test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             
-        process.wait()
-    
-    print("="*60)
-    print(f"✅ [HOST] Remote execution complete. Artifact saved: {log_file}")
-    
-    # 8. Sync back the .report.json artifact if it was generated
-    sync_back_cmd = f"scp -q {user}@{host}:{remote_dir}/.report.json .report.json 2>/dev/null || true"
-    subprocess.run(sync_back_cmd, shell=True)
-    
-    # 9. Abort the local pytest run and exit with the Pi's success/fail code
-    sys.exit(process.returncode)
+            for line in test_proc.stdout:
+                sys.stdout.write(line)
+                log.write(line)
+                log.flush()
+            test_proc.wait()
+            
+            if test_proc.returncode == 255:
+                print(f"\n🔌 SSH Connection dropped (Reboot/Panic detected).")
+                print("⏳ Waiting for Pi to recover before resuming tests...")
+                continue # Loop back and resume the remaining tests
+            else:
+                # Finished normally (0 = pass, 1 = fail)
+                print("\n" + "="*60)
+                print("📥 Pulling test reports (.report.json, html, xml) back from Pi...")
+                # Suppress errors if plugins weren't active
+                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json . 2>/dev/null", shell=True)
+                subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/ 2>/dev/null", shell=True)
+                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/ 2>/dev/null", shell=True)
+                
+                print(f"✅ Remote execution complete. Host log saved: {log_file}")
+                sys.exit(test_proc.returncode)
 
 
 # --- Hardware Fixtures (Executed only on the Pi) ---
@@ -114,3 +134,21 @@ def loopback_pins(board_config):
     yield request
     
     request.release()
+
+def pytest_runtest_setup(item):
+    """Tracker: Record test as attempted before it runs, so we skip it upon reboot resumption."""
+    if os.environ.get("RUNNING_ON_PI"):
+        with open("pytest_attempted.txt", "a") as f:
+            f.write(item.nodeid + "\n")
+
+def pytest_collection_modifyitems(config, items):
+    """Tracker: Remove already attempted tests from the queue upon resumption."""
+    if os.environ.get("RUNNING_ON_PI"):
+        try:
+            with open("pytest_attempted.txt", "r") as f:
+                completed = set(f.read().splitlines())
+            
+            # Keep only items that haven't been attempted yet
+            items[:] = [item for item in items if item.nodeid not in completed]
+        except FileNotFoundError:
+            pass
