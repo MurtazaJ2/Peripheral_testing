@@ -1,0 +1,8 @@
+target:
+  host: "192.168.0.207"
+  user: "rpi"
+  password: "rpi" # Set if using password auth instead of keys
+
+agent:
+  log_dir: "logs"
+  report_file: "bsp_validation.md"
