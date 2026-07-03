@@ -223,20 +223,30 @@ def test_internal_interrupts(board_config):
     print("="*60 + "\n", flush=True)
 
 
-# 11. Hot Reset Test (Internal)
-def test_internal_remove_rescan(board_config):
+# 11. Hot Reset Test (Internal) - Stage 1
+def test_internal_remove_stage1(board_config, request):
     print("\n" + "="*60, flush=True)
-    print("🔄 INTERNAL PCIE: HOT RESET", flush=True)
+    print("🔄 INTERNAL PCIE: HOT RESET (STAGE 1)", flush=True)
     
     pci_id = get_rp1_pci_id()
     if not pci_id:
         pytest.skip("RP1 chip not found.")
         
-    # Attempting to hot-reset the RP1 over an SSH connection running ON the RP1's ethernet controller
-    # will instantly sever the connection, crash the test suite, and panic the OS kernel.
     print("  ⚠️  WARNING: Removing the RP1 Southbridge removes USB, Ethernet, and GPIO.")
-    print("  ⚠️  WARNING: This would instantly crash this remote testing framework.")
-    pytest.skip("Skipping RP1 Hot-Reset to prevent OS panic and SSH disconnection.")
+    print("  ⚠️  Initiating Hot-Reset. The device will drop off the network and reboot.")
+    
+    # Run in the background: Wait 5 sec, remove the device, wait 3 secs, then force reboot.
+    # We fully detach the process and pipe FDs to DEVNULL so SSH can exit gracefully immediately!
+    subprocess.Popen(
+        f"sudo sh -c 'sleep 5 && echo 1 > /sys/bus/pci/devices/{pci_id}/remove && sleep 3 && sudo reboot'", 
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
+    
+    # Force Pytest to stop gracefully after this test so it flushes all reports
+    request.session.shouldstop = "Intentional reboot triggered"
 
 
 # 12. Reboot Persistence Test (Internal)

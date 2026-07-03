@@ -60,6 +60,14 @@ def pytest_cmdline_main(config):
     subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True)
     
     import time
+    import glob
+    import json
+    
+    session_part = 1
+    # Cleanup any old parts left over from crashes
+    for f in glob.glob(".report_part_*.json"):
+        os.remove(f)
+        
     with open(log_file, "w") as log:
         while True:
             # Wait for board to be online before starting
@@ -75,6 +83,12 @@ def pytest_cmdline_main(config):
             if not board_online:
                 print("❌ Board failed to come online. Aborting run.")
                 sys.exit(1)
+                
+            # If we just recovered from a hard crash, the previous session's partial report is stuck on the Pi.
+            # We try to download it again here using the exact same name, so it overwrites any corrupt 
+            # or missing files without duplicating the JSON files for the final glob merge!
+            if session_part > 1:
+                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part-1}.json 2>/dev/null", shell=True)
 
             run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s'"
             test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -85,21 +99,60 @@ def pytest_cmdline_main(config):
                 log.flush()
             test_proc.wait()
             
-            if test_proc.returncode == 255:
-                print(f"\n🔌 SSH Connection dropped (Reboot/Panic detected).")
+            # ALWAYS attempt to pull the partial JSON report (if pytest wrote it before exiting)
+            subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part}.json 2>/dev/null", shell=True)
+            
+            if test_proc.returncode in (2, 255):
+                print(f"\n🔌 Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered).")
+                
+                # If it was a graceful scheduled reboot (Code 2), the background script is still waiting to reboot.
+                # We must wait for it to actually drop the network before we try to check if it's back online!
+                if test_proc.returncode == 2:
+                    print("  ⏳ Allowing 10 seconds for the scheduled reboot to take down the network...")
+                    time.sleep(10)
+                    
                 print("⏳ Waiting for Pi to recover before resuming tests...")
+                session_part += 1
                 continue # Loop back and resume the remaining tests
             else:
                 # Finished normally (0 = pass, 1 = fail)
                 print("\n" + "="*60)
-                print("📥 Pulling test reports (.report.json, html, xml) back from Pi...")
-                # Suppress errors if plugins weren't active
-                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json . 2>/dev/null", shell=True)
+                print("📥 Pulling final HTML and XML test reports from Pi...")
                 subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/ 2>/dev/null", shell=True)
                 subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/ 2>/dev/null", shell=True)
                 
+                # Merge JSON parts
+                json_out_file = ".report.json"
+                parts = sorted(glob.glob(".report_part_*.json"))
+                merged = None
+                
+                for part in parts:
+                    try:
+                        with open(part, "r") as f:
+                            data = json.load(f)
+                        if merged is None:
+                            merged = data
+                        else:
+                            merged["duration"] += data.get("duration", 0)
+                            for k, v in data.get("summary", {}).items():
+                                if k == "collected":
+                                    merged.setdefault("summary", {})[k] = max(merged.get("summary", {}).get(k, 0), v)
+                                else:
+                                    merged.setdefault("summary", {})[k] = merged.get("summary", {}).get(k, 0) + v
+                            merged.setdefault("tests", []).extend(data.get("tests", []))
+                    except Exception:
+                        pass
+                        
+                if merged:
+                    with open(json_out_file, "w") as f:
+                        json.dump(merged, f, indent=2)
+                    print(f"📄 Unified JSON Report saved to: {json_out_file}")
+                    
+                for part in parts:
+                    os.remove(part)
+                
                 print(f"✅ Remote execution complete. Host log saved: {log_file}")
-                sys.exit(test_proc.returncode)
+                sys.exit(0 if test_proc.returncode == 0 else 1)
 
 
 # --- Hardware Fixtures (Executed only on the Pi) ---
@@ -134,6 +187,18 @@ def loopback_pins(board_config):
     yield request
     
     request.release()
+
+def pytest_runtest_teardown(item):
+    """Incremental Save: Save JSON report after every test so data isn't lost if the kernel panics."""
+    if os.environ.get("RUNNING_ON_PI"):
+        json_plugin = item.config.pluginmanager.getplugin("json-report")
+        if json_plugin and hasattr(json_plugin, "report"):
+            import json
+            try:
+                with open(".report.json", "w") as f:
+                    json.dump(json_plugin.report, f)
+            except Exception:
+                pass
 
 def pytest_runtest_setup(item):
     """Tracker: Record test as attempted before it runs, so we skip it upon reboot resumption."""
