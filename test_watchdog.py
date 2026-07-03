@@ -202,7 +202,7 @@ def test_watchdog_enable_and_feed(board_config):
     print("="*60 + "\n", flush=True)
 
 
-def test_watchdog_starvation_reboot(board_config):
+def test_watchdog_starvation_reboot(board_config, request):
     """
     DESTRUCTIVE TEST: Proves that failing to feed the watchdog triggers a reboot.
 
@@ -266,18 +266,11 @@ def test_watchdog_starvation_reboot(board_config):
             except OSError:
                 pass
 
-    grace_period = 5
-    total_wait = timeout_val + grace_period
-    print(f"  ⏳ Counting down {total_wait}s (including {grace_period}s grace period) to hardware reset...", flush=True)
-    for remaining in range(total_wait, 0, -1):
-        time.sleep(1)
-        print(f"  ... {remaining}s remaining ...", flush=True)
-
-    pytest.fail(
-        "Expected hardware reset did NOT occur after watchdog timeout.\n"
-        "The watchdog may not be functioning correctly.\n"
-        "Check: dtparam=watchdog=on in /boot/firmware/config.txt"
-    )
+    print(f"  ⏳ Hardware Watchdog will force a reset in {timeout_val}s.", flush=True)
+    print(f"  ⏳ Halting Pytest gracefully so report saves...", flush=True)
+    request.session.shouldstop = "Intentional reboot triggered"
+    
+    print("="*60 + "\n", flush=True)
 
 
 def test_watchdog_post_reboot_verify(board_config):

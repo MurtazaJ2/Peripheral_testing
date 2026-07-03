@@ -215,7 +215,7 @@ def test_rtc_stage2_drift_check():
     print("="*60 + "\n", flush=True)
 
 
-def test_rtc_stage3_pre_reboot_stamp():
+def test_rtc_stage3_pre_reboot_stamp(request):
     """
     Stage 3: Write a timestamp to the RTC and to a state file.
     Run this BEFORE rebooting. After reboot, run Stage 4 to verify retention.
@@ -257,8 +257,21 @@ def test_rtc_stage3_pre_reboot_stamp():
     print(f"  📝 Timestamp written to RTC: {stamp_str} (epoch {stamp_epoch})",
           flush=True)
     print(f"  📝 State file saved to: {state_path}", flush=True)
-    print(f"\n  👉 NOW REBOOT THE PI: sudo reboot", flush=True)
-    print(f"  👉 AFTER REBOOT: run test_rtc_stage4_post_reboot_verify", flush=True)
+    print(f"\n  👉 Initiating scheduled reboot...", flush=True)
+    
+    # Run in the background: Wait 5 sec, then force reboot.
+    # We fully detach the process and pipe FDs to DEVNULL so SSH can exit gracefully immediately!
+    subprocess.Popen(
+        "sudo sh -c 'sleep 5 && sudo reboot'", 
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
+    
+    # Force Pytest to stop gracefully after this test so it flushes all reports
+    request.session.shouldstop = "Intentional reboot triggered"
+    
     print("="*60 + "\n", flush=True)
 
 
@@ -429,6 +442,9 @@ def test_rtc_battery_power_off_retention():
     print("\n" + "="*60, flush=True)
     print("🔋 RTC VALIDATION - STAGE 3: TRUE POWER-OFF RETENTION", flush=True)
     
+    if not os.environ.get("RUN_MANUAL_POWER_OFF_TEST"):
+        pytest.skip("Manual test requires physical power removal and pre-setting the RTC to 2036. Set RUN_MANUAL_POWER_OFF_TEST=1 to run.")
+        
     # 1. Verify the internet didn't cheat
     try:
         timedate_out = subprocess.check_output(["timedatectl", "status"], text=True)

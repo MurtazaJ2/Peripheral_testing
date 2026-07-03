@@ -1,13 +1,13 @@
 {
-  "created": 1783058862.3245027,
-  "duration": 16.68887233734131,
+  "created": 1783062268.9103827,
+  "duration": 23.296443939208984,
   "exitcode": 2,
   "root": "/home/rpi/hw-val-framework",
   "environment": {},
   "summary": {
-    "passed": 14,
-    "total": 14,
-    "collected": 14
+    "passed": 3,
+    "total": 3,
+    "collected": 3
   },
   "collectors": [
     {
@@ -15,408 +15,100 @@
       "outcome": "passed",
       "result": [
         {
-          "nodeid": "test_pcie_software.py",
+          "nodeid": "test_watchdog.py",
           "type": "Module"
         }
       ]
     },
     {
-      "nodeid": "test_pcie_software.py",
+      "nodeid": "test_watchdog.py",
       "outcome": "passed",
       "result": [
         {
-          "nodeid": "test_pcie_software.py::test_internal_device_present",
+          "nodeid": "test_watchdog.py::test_watchdog_enable_and_feed",
           "type": "Function",
-          "lineno": 24
+          "lineno": 69
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_link_speed",
+          "nodeid": "test_watchdog.py::test_watchdog_starvation_reboot",
           "type": "Function",
-          "lineno": 39
+          "lineno": 204
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_link_width",
+          "nodeid": "test_watchdog.py::test_watchdog_post_reboot_verify",
           "type": "Function",
-          "lineno": 63
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_driver_loaded",
-          "type": "Function",
-          "lineno": 86
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_bar_assignment",
-          "type": "Function",
-          "lineno": 102
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_no_pcie_errors",
-          "type": "Function",
-          "lineno": 118
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_rp1_peripherals_detected",
-          "type": "Function",
-          "lineno": 138
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_rp1_data_transfer",
-          "type": "Function",
-          "lineno": 154
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_rp1_throughput",
-          "type": "Function",
-          "lineno": 170
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_interrupts",
-          "type": "Function",
-          "lineno": 191
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_remove_stage1",
-          "type": "Function",
-          "lineno": 226
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_remove_stage2",
-          "type": "Function",
-          "lineno": 252
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_post_reboot",
-          "type": "Function",
-          "lineno": 264
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_24hr_stability",
-          "type": "Function",
-          "lineno": 276
+          "lineno": 275
         }
       ]
     }
   ],
   "tests": [
     {
-      "nodeid": "test_pcie_software.py::test_internal_device_present",
-      "lineno": 24,
+      "nodeid": "test_watchdog.py::test_watchdog_enable_and_feed",
+      "lineno": 69,
       "outcome": "passed",
       "keywords": [
-        "test_internal_device_present",
-        "test_pcie_software.py",
+        "test_watchdog_enable_and_feed",
+        "test_watchdog.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.0030440660000294884,
+        "duration": 0.003044153000018923,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.019985711999993327,
+        "duration": 18.023723996000058,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00016719100005957443,
+        "duration": 0.0002292570000008709,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_link_speed",
-      "lineno": 39,
+      "nodeid": "test_watchdog.py::test_watchdog_starvation_reboot",
+      "lineno": 204,
       "outcome": "passed",
       "keywords": [
-        "test_internal_link_speed",
-        "test_pcie_software.py",
+        "test_watchdog_starvation_reboot",
+        "test_watchdog.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00024769300000571093,
+        "duration": 0.00034455200000138575,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.04126789400004327,
+        "duration": 5.000714830999982,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00014089399996919383,
+        "duration": 0.00019277599994893535,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_link_width",
-      "lineno": 63,
+      "nodeid": "test_watchdog.py::test_watchdog_post_reboot_verify",
+      "lineno": 275,
       "outcome": "passed",
       "keywords": [
-        "test_internal_link_width",
-        "test_pcie_software.py",
+        "test_watchdog_post_reboot_verify",
+        "test_watchdog.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.000226267000016378,
+        "duration": 0.004166851000000804,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.040689782999947965,
+        "duration": 0.0304576670000003,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00012805999995180173,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_driver_loaded",
-      "lineno": 86,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_driver_loaded",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022580399991056765,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.039899515000001884,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00013304100002642372,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_bar_assignment",
-      "lineno": 102,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_bar_assignment",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022937800008548948,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.04082219599990822,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.0001307269999415439,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_no_pcie_errors",
-      "lineno": 118,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_no_pcie_errors",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.0002239149999923029,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.03414897400000427,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00013015300010010833,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_rp1_peripherals_detected",
-      "lineno": 138,
-      "outcome": "passed",
-      "keywords": [
-        "test_rp1_peripherals_detected",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00023058099998252146,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.021373132999997324,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00012720799998078292,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_rp1_data_transfer",
-      "lineno": 154,
-      "outcome": "passed",
-      "keywords": [
-        "test_rp1_data_transfer",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022543400007180026,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.009277462999989439,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00012691099993844546,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_rp1_throughput",
-      "lineno": 170,
-      "outcome": "passed",
-      "keywords": [
-        "test_rp1_throughput",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022422900008223223,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.07064350899997862,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00013239399993381085,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_interrupts",
-      "lineno": 191,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_interrupts",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022622999995292048,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 1.034455353999988,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00012785700005224498,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_remove_stage1",
-      "lineno": 226,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_remove_stage1",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00024636099999497674,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.020996308000007957,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00017722799998409755,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_remove_stage2",
-      "lineno": 252,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_remove_stage2",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.003621462999998215,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.06095192600000132,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00016368600000049582,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_post_reboot",
-      "lineno": 264,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_post_reboot",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.0002454260000028796,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.0197723510000003,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00014205500000130655,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_24hr_stability",
-      "lineno": 276,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_24hr_stability",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022714800000045443,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 15.018781385,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00023568900000014992,
+        "duration": 0.00031094400000242217,
         "outcome": "passed"
       }
     }

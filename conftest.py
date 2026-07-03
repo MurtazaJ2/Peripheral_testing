@@ -108,8 +108,8 @@ def pytest_cmdline_main(config):
                 # If it was a graceful scheduled reboot (Code 2), the background script is still waiting to reboot.
                 # We must wait for it to actually drop the network before we try to check if it's back online!
                 if test_proc.returncode == 2:
-                    print("  ⏳ Allowing 10 seconds for the scheduled reboot to take down the network...")
-                    time.sleep(10)
+                    print("  ⏳ Allowing 20 seconds for the scheduled reboot to take down the network...")
+                    time.sleep(20)
                     
                 print("⏳ Waiting for Pi to recover before resuming tests...")
                 session_part += 1
