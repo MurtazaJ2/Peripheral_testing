@@ -56,7 +56,7 @@ def gather_diagnostics(state: AgentState) -> AgentState:
     user = config["remote"]["user"]
     password = config["remote"].get("password", "")
     
-    connect_kwargs = {"password": password} if password else {}
+    connect_kwargs = {"password": password, "timeout": 5} if password else {"timeout": 5}
     
     try:
         with Connection(host=host, user=user, connect_kwargs=connect_kwargs) as c:
@@ -80,7 +80,9 @@ def analyze_failure(state: AgentState) -> AgentState:
         model=model_name,
         temperature=0,
         openai_api_key=os.environ.get("OPENROUTER_API_KEY", "missing_key"),
-        openai_api_base="https://openrouter.ai/api/v1"
+        openai_api_base="https://openrouter.ai/api/v1",
+        timeout=15.0,
+        max_retries=0
     )
     
     prompt = f"""
@@ -96,7 +98,22 @@ def analyze_failure(state: AgentState) -> AgentState:
     Analyze the logs and the failed tests. Provide a concise root cause analysis (RCA).
     """
     
-    response = llm.invoke([SystemMessage(content=prompt)])
+    print("[Agent] ⏳ Enforcing 3-second cooldown to respect OpenRouter's 30 RPM limit...")
+    import time
+    time.sleep(3)
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = llm.invoke([SystemMessage(content=prompt)])
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"[Agent] ⚠️ API Error encountered ({e}). Sleeping for 60 seconds before retrying...")
+                time.sleep(60)
+            else:
+                return {"diagnosis": f"Analysis aborted due to repeated API errors: {e}"}
+                
     print(f"\n[DIAGNOSIS]\n{response.content}\n")
     return {"diagnosis": response.content}
 

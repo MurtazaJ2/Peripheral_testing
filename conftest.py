@@ -152,6 +152,12 @@ def pytest_cmdline_main(config):
                     os.remove(part)
                 
                 print(f"✅ Remote execution complete. Host log saved: {log_file}")
+                
+                if os.path.exists("agent.py"):
+                    print("\n" + "="*60)
+                    print("🤖 Launching Autonomous AI Agent for Analysis...")
+                    subprocess.run(["python3", "agent.py"])
+                
                 sys.exit(0 if test_proc.returncode == 0 else 1)
 
 
