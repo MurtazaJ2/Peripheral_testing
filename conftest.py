@@ -17,6 +17,17 @@ def pytest_cmdline_main(config):
         return None 
 
     board_name = config.getoption("--board")
+    
+    if board_name == "auto":
+        print("🤖 [HOST] Auto-detecting board hardware...")
+        from detect_board import discover_and_update_board
+        detected = discover_and_update_board()
+        if not detected:
+            print("❌ [HOST] Could not auto-detect board. Exiting.")
+            sys.exit(1)
+        board_name = detected
+        config.option.board = detected
+
     with open("boards.yaml", "r") as f:
         configs = yaml.safe_load(f)
     
