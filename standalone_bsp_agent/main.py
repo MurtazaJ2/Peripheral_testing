@@ -9,13 +9,13 @@ def main():
     # Ensure logs directory exists
     os.makedirs("logs", exist_ok=True)
     
-    # 1. Phase 1: Autonomous Hardware Discovery
+    # 1. Phase 1: Autonomous Board Discovery & Schema Extraction
     initial_state = {"hardware_topology": "", "user_test_requests": ""}
     discovered_state = discover_node(initial_state)
     topology = discovered_state["hardware_topology"]
     
     print("\n" + "="*60)
-    print("📡 DISCOVERED HARDWARE TOPOLOGY:")
+    print("📡 DISCOVERED BOARD, SCHEMA & HARDWARE TOPOLOGY:")
     print("="*60)
     print(topology)
     print("="*60)

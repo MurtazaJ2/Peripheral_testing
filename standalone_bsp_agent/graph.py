@@ -5,7 +5,7 @@ from typing import TypedDict, Annotated, List, Any
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from dotenv import load_dotenv
 
 from personas import DISCOVERER_PROMPT, SYNTHESIZER_PROMPT, DIAGNOSER_PROMPT
@@ -66,24 +66,26 @@ def robust_invoke(bind_tools_list, messages):
 def discover_node(state: AgentState) -> AgentState:
     print("\n[Agent] 🔍 Discovering Hardware Topology...")
     
-    # Simple reactive loop for tool calling
-    messages = [SystemMessage(content=DISCOVERER_PROMPT), HumanMessage(content="Begin discovery.")]
-    while True:
-        response = robust_invoke([run_ssh_command], messages)
-        messages.append(response)
+    # Run the hardware discovery command directly to avoid LLM tool loop crashes
+    discovery_cmd = "cat /proc/device-tree/model 2>/dev/null; uname -a; ip -br link; lsblk; lspci 2>/dev/null; lsusb 2>/dev/null; ls /dev/i2c* /dev/spi* /dev/tty* 2>/dev/null"
+    print(f"  [Tool] Running run_ssh_command directly for hardware probe...")
+    raw_output = run_ssh_command.invoke({"command": discovery_cmd})
+    
+    # Now ask the LLM to parse this raw output into our beautiful JSON schema
+    prompt = f"{DISCOVERER_PROMPT}\n\nRAW HARDWARE OUTPUT:\n{raw_output}"
+    messages = [HumanMessage(content=prompt)]
+    
+    print(f"  [Agent] 🧠 Parsing hardware data into JSON schema...")
+    response = robust_invoke(None, messages)
+    
+    topology = response.content if hasattr(response, 'content') else str(response)
+    
+    # Strip any markdown backticks if the LLM adds them
+    if topology.startswith("```json"):
+        topology = topology.replace("```json", "", 1).strip()
+    if topology.endswith("```"):
+        topology = topology[:-3].strip()
         
-        if not getattr(response, 'tool_calls', None):
-            break
-            
-        for tool_call in response.tool_calls:
-            print(f"  [Tool] Running {tool_call['name']}...")
-            if tool_call['name'] == 'run_ssh_command':
-                result = run_ssh_command.invoke(tool_call['args'])
-            else:
-                result = "Tool not found."
-            messages.append({"role": "tool", "tool_call_id": tool_call['id'], "content": str(result)})
-            
-    topology = messages[-1].content
     return {"hardware_topology": topology}
 
 def synthesize_node(state: AgentState) -> AgentState:
@@ -204,24 +206,46 @@ def diagnose_node(state: AgentState) -> AgentState:
     prompt = f"{DIAGNOSER_PROMPT}\n\nTest Output:\n{state['test_results']}"
     messages = [HumanMessage(content=prompt)]
     
-    while True:
+    max_iterations = 15
+    iteration = 0
+    executed_commands = set()
+    while iteration < max_iterations:
+        iteration += 1
         response = robust_invoke([run_ssh_command, read_dmesg_logs], messages)
         messages.append(response)
         
         if not getattr(response, 'tool_calls', None):
             break
             
-        for tool_call in response.tool_calls:
-            print(f"  [Tool] Running {tool_call['name']}...")
-            if tool_call['name'] == 'run_ssh_command':
+        unique_tool_calls = []
+        seen = set()
+        for tc in response.tool_calls:
+            sig = f"{tc['name']}_{tc['args']}"
+            if sig not in seen:
+                unique_tool_calls.append(tc)
+                seen.add(sig)
+                
+        for tool_call in unique_tool_calls:
+            print(f"  [Tool] Running {tool_call['name']} with args: {tool_call['args']}")
+            
+            cmd_signature = f"{tool_call['name']}_{tool_call['args']}"
+            if cmd_signature in executed_commands:
+                result = f"Error: Tool '{tool_call['name']}' with these arguments was already executed. Stop repeating identical tool calls and synthesize a diagnosis."
+            elif tool_call['name'] == 'run_ssh_command':
                 result = run_ssh_command.invoke(tool_call['args'])
+                executed_commands.add(cmd_signature)
             elif tool_call['name'] == 'read_dmesg_logs':
                 result = read_dmesg_logs.invoke(tool_call['args'])
+                executed_commands.add(cmd_signature)
             else:
                 result = "Tool not found."
-            messages.append({"role": "tool", "tool_call_id": tool_call['id'], "content": str(result)})
+                
+            messages.append(ToolMessage(tool_call_id=tool_call['id'], content=str(result), name=tool_call['name']))
             
-    return {"diagnosis": messages[-1].content}
+    if iteration >= max_iterations:
+        print("  [Warning] Maximum diagnosis iterations reached. Returning partial diagnosis.")
+        
+    return {"diagnosis": messages[-1].content if hasattr(messages[-1], 'content') else "Diagnosis incomplete."}
 
 def report_node(state: AgentState) -> AgentState:
     print("\n[Agent] 📝 Writing Log Report...")
