@@ -23,6 +23,7 @@ def get_rp1_pci_id():
 
 # 1. PCIe Enumeration Test (Internal)
 def test_internal_device_present(board_config):
+    """Validates that the internal PCIe bridge and Southbridge chip are present on the bus."""
     print("\n" + "="*60, flush=True)
     print("🔍 INTERNAL PCIE: ENUMERATION TEST", flush=True)
     
@@ -38,6 +39,7 @@ def test_internal_device_present(board_config):
 
 # 2. Link Speed Validation (Internal)
 def test_internal_link_speed(board_config):
+    """Validates the negotiated PCIe link speed is optimal (e.g. 5.0GT/s)."""
     print("\n" + "="*60, flush=True)
     print("⚡ INTERNAL PCIE: LINK SPEED", flush=True)
     
@@ -62,6 +64,7 @@ def test_internal_link_speed(board_config):
 
 # 3. Link Width Validation (Internal)
 def test_internal_link_width(board_config):
+    """Validates the negotiated PCIe link width is at maximum capacity (e.g. x4 lanes)."""
     print("\n" + "="*60, flush=True)
     print("🛤️ INTERNAL PCIE: LINK WIDTH", flush=True)
     
@@ -85,6 +88,7 @@ def test_internal_link_width(board_config):
 
 # 4. Driver Binding Test (Internal)
 def test_internal_driver_loaded(board_config):
+    """Verifies that the correct kernel driver is loaded and bound to the PCIe endpoint."""
     print("\n" + "="*60, flush=True)
     print("📦 INTERNAL PCIE: DRIVER BINDING", flush=True)
     
@@ -101,6 +105,7 @@ def test_internal_driver_loaded(board_config):
 
 # 5. BAR Assignment Test (Internal)
 def test_internal_bar_assignment(board_config):
+    """Checks that Memory Base Address Registers (BARs) are correctly assigned by the kernel."""
     print("\n" + "="*60, flush=True)
     print("📝 INTERNAL PCIE: BAR ASSIGNMENT", flush=True)
     
@@ -117,6 +122,7 @@ def test_internal_bar_assignment(board_config):
 
 # 6. Kernel Error Scan (Internal)
 def test_internal_no_pcie_errors(board_config):
+    """Scans the kernel dmesg ring buffer to ensure no critical PCIe errors (like AER or CRC) occurred."""
     print("\n" + "="*60, flush=True)
     print("🛡️ INTERNAL PCIE: KERNEL ERROR SCAN", flush=True)
     
@@ -137,6 +143,7 @@ def test_internal_no_pcie_errors(board_config):
 
 # 7. Device Presence Test (Internal RP1 Peripherals)
 def test_rp1_peripherals_detected(board_config):
+    """Verifies that internal peripherals downstream of the PCIe bridge (like Ethernet and GPIO) enumerate successfully."""
     print("\n" + "="*60, flush=True)
     print("🔌 INTERNAL PCIE: PERIPHERAL ENUMERATION", flush=True)
     
@@ -153,6 +160,7 @@ def test_rp1_peripherals_detected(board_config):
 
 # 8. Data Transfer / Register Test (Internal)
 def test_rp1_data_transfer(board_config):
+    """Reads a hardware register to confirm data transfer across the internal PCIe link."""
     print("\n" + "="*60, flush=True)
     print("✍️ INTERNAL PCIE: DATA TRANSFER", flush=True)
     
@@ -169,6 +177,7 @@ def test_rp1_data_transfer(board_config):
 
 # 9. Throughput Test (Internal)
 def test_rp1_throughput(board_config):
+    """Simulates memory subsystem stress to validate internal PCIe bridge responsiveness under load."""
     print("\n" + "="*60, flush=True)
     print("🚀 INTERNAL PCIE: THROUGHPUT (SIMULATION)", flush=True)
     
@@ -190,6 +199,7 @@ def test_rp1_throughput(board_config):
 
 # 10. Interrupt Validation (Internal)
 def test_internal_interrupts(board_config):
+    """Polls hardware state to ensure PCIe interrupts are correctly firing and counted by the kernel."""
     print("\n" + "="*60, flush=True)
     print("🔌 INTERNAL PCIE: INTERRUPT COUNT", flush=True)
     
@@ -225,6 +235,7 @@ def test_internal_interrupts(board_config):
 
 # 11. Hot Reset Test (Internal) - Stage 1
 def test_internal_remove_stage1(board_config, request):
+    """Initiates a hot-reset of the PCIe Southbridge to validate kernel panic recovery and reboot persistence."""
     print("\n" + "="*60, flush=True)
     print("🔄 INTERNAL PCIE: HOT RESET (STAGE 1)", flush=True)
     
@@ -251,6 +262,7 @@ def test_internal_remove_stage1(board_config, request):
 
 # 12. Reboot Persistence Test (Internal)
 def test_internal_post_reboot(board_config):
+    """Validates that the internal PCIe endpoint recovers successfully after a hot-reset reboot."""
     print("\n" + "="*60, flush=True)
     print("🔁 INTERNAL PCIE: POST REBOOT PRESENCE", flush=True)
     
@@ -263,6 +275,7 @@ def test_internal_post_reboot(board_config):
 
 # 13. Long-Duration Stability Test (Internal)
 def test_internal_24hr_stability(board_config):
+    """Continuously polls hardware sensors over a duration to ensure long-term link stability."""
     print("\n" + "="*60, flush=True)
     print("🏋️ INTERNAL PCIE: STABILITY TEST", flush=True)
     
