@@ -19,11 +19,11 @@ def pytest_cmdline_main(config):
     board_name = config.getoption("--board")
     
     if board_name == "auto":
-        print("🤖 [HOST] Auto-detecting board hardware...")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Auto-detecting board hardware...")
         from detect_board import discover_and_update_board
         detected = discover_and_update_board()
         if not detected:
-            print("❌ [HOST] Could not auto-detect board. Exiting.")
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [ERROR] [HOST] Could not auto-detect board. Exiting.")
             sys.exit(1)
         board_name = detected
         config.option.board = detected
@@ -41,21 +41,21 @@ def pytest_cmdline_main(config):
     user = board["remote"]["user"]
     remote_dir = f"~/hw-val-framework"
 
-    print(f"\n🚀 [HOST] Intercepting Pytest. Auto-deploying to {user}@{host}...")
+    print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Intercepting Pytest. Auto-deploying to {user}@{host}...")
 
     # 3. Auto-Install OS Dependencies on the Pi (Fixed syntax error here)
-    print("⚙️  [1/4] Installing OS dependencies on Pi (if missing)...")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [1/4] Installing OS dependencies on Pi (if missing)...")
     os_deps_cmd = f"ssh {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
     subprocess.run(os_deps_cmd, shell=True)
 
     # 4. Sync Code to Pi (Using tar to instantly compress, send, and extract while ignoring caches)
     # Because of this design, requirements.txt is automatically synced to the Pi!
-    print("📦 [2/4] Syncing code to Pi...")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [2/4] Syncing code to Pi...")
     sync_cmd = f"tar --exclude='venv' --exclude='__pycache__' --exclude='.pytest_cache' -czf - . | ssh {user}@{host} 'mkdir -p {remote_dir} && cd {remote_dir} && tar -xzf -'"
     subprocess.run(sync_cmd, shell=True)
 
     # 5. Auto-Install Python Dependencies on Pi using requirements.txt
-    print("🐍 [3/4] Configuring Python Environment on Pi...")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [3/4] Configuring Python Environment on Pi...")
     setup_cmd = f"ssh {user}@{host} 'cd {remote_dir} && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt'"
     subprocess.run(setup_cmd, shell=True)
 
@@ -63,10 +63,10 @@ def pytest_cmdline_main(config):
     os.makedirs("logs", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = f"logs/run_{board_name}_{timestamp}.log"
-    print(f"📝 [HOST] Live logs will be saved to: {log_file}")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Live logs will be saved to: {log_file}")
 
     # 7. Clear tracker on Pi and Execute Tests
-    print(f"🔥 [4/4] Executing test suite on Pi in continuous session mode...")
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [4/4] Executing test suite on Pi in continuous session mode...")
     args = " ".join(config.invocation_params.args)
     subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True)
     
@@ -88,11 +88,11 @@ def pytest_cmdline_main(config):
                 if ping_proc.returncode == 0:
                     board_online = True
                     break
-                print("  ⏳ Waiting for board to become reachable over SSH...")
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]    Waiting for board to become reachable over SSH...")
                 time.sleep(5)
                 
             if not board_online:
-                print("❌ Board failed to come online. Aborting run.")
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [ERROR] Board failed to come online. Aborting run.")
                 sys.exit(1)
                 
             # If we just recovered from a hard crash, the previous session's partial report is stuck on the Pi.
@@ -101,7 +101,7 @@ def pytest_cmdline_main(config):
             if session_part > 1:
                 subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part-1}.json 2>/dev/null", shell=True)
 
-            run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s'"
+            run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s -o asyncio_default_fixture_loop_scope=function'"
             test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             
             for line in test_proc.stdout:
@@ -114,21 +114,21 @@ def pytest_cmdline_main(config):
             subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part}.json 2>/dev/null", shell=True)
             
             if test_proc.returncode in (2, 255):
-                print(f"\n🔌 Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered).")
+                print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered).")
                 
                 # If it was a graceful scheduled reboot (Code 2), the background script is still waiting to reboot.
                 # We must wait for it to actually drop the network before we try to check if it's back online!
                 if test_proc.returncode == 2:
-                    print("  ⏳ Allowing 20 seconds for the scheduled reboot to take down the network...")
+                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]    Allowing 20 seconds for the scheduled reboot to take down the network...")
                     time.sleep(20)
                     
-                print("⏳ Waiting for Pi to recover before resuming tests...")
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Waiting for Pi to recover before resuming tests...")
                 session_part += 1
                 continue # Loop back and resume the remaining tests
             else:
                 # Finished normally (0 = pass, 1 = fail)
                 print("\n" + "="*60)
-                print("📥 Pulling final HTML and XML test reports from Pi...")
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Pulling final HTML and XML test reports from Pi...")
                 subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/ 2>/dev/null", shell=True)
                 subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/ 2>/dev/null", shell=True)
                 
@@ -157,16 +157,16 @@ def pytest_cmdline_main(config):
                 if merged:
                     with open(json_out_file, "w") as f:
                         json.dump(merged, f, indent=2)
-                    print(f"📄 Unified JSON Report saved to: {json_out_file}")
+                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Unified JSON Report saved to: {json_out_file}")
                     
                 for part in parts:
                     os.remove(part)
                 
-                print(f"✅ Remote execution complete. Host log saved: {log_file}")
+                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Remote execution complete. Host log saved: {log_file}")
                 
                 if os.path.exists("agent.py"):
                     print("\n" + "="*60)
-                    print("🤖 Launching Autonomous AI Agent for Analysis...")
+                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Launching Autonomous AI Agent for Analysis...")
                     subprocess.run(["python3", "agent.py"])
                 
                 sys.exit(0 if test_proc.returncode == 0 else 1)
@@ -234,3 +234,80 @@ def pytest_collection_modifyitems(config, items):
             items[:] = [item for item in items if item.nodeid not in completed]
         except FileNotFoundError:
             pass
+import contextlib
+
+class TestLogger:
+    def __init__(self, nodeid):
+        self.nodeid = nodeid
+        self.step_counter = 1
+        self.is_first_log = True
+
+    def _log(self, level, msg, indent=0):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        prefix = f"{timestamp} [{level:5}] "
+        indent_str = "  " * indent
+        
+        if self.is_first_log:
+            print()
+            self.is_first_log = False
+            
+        for line in str(msg).split('\n'):
+            print(f"{prefix}{indent_str}{line}", flush=True)
+
+    def info(self, msg, indent=0):
+        self._log("INFO", msg, indent)
+        
+    def error(self, msg, indent=0):
+        self._log("ERROR", msg, indent)
+        
+    def pass_mark(self, msg, indent=0):
+        self._log("PASS", msg, indent)
+
+    def fail_mark(self, msg, indent=0):
+        self._log("FAIL", msg, indent)
+
+    def skip_mark(self, msg, indent=0):
+        self._log("SKIP", msg, indent)
+
+    @contextlib.contextmanager
+    def step(self, name, action, expected):
+        step_num = self.step_counter
+        self.step_counter += 1
+        
+        self.info(f"STEP {step_num}: {name}")
+        self.info(f"Action: {action}", indent=1)
+        self.info(f"Expected: {expected}", indent=1)
+        
+        class StepResult:
+            def __init__(self):
+                self.actual = None
+            def success(self, actual):
+                self.actual = actual
+        
+        result = StepResult()
+        
+        try:
+            yield result
+            if result.actual is not None:
+                self.info(f"Actual: {result.actual}", indent=1)
+            else:
+                self.info(f"Actual: Matches expected", indent=1)
+            self.pass_mark(f"STEP {step_num}: {name}", indent=1)
+        except AssertionError as e:
+            self.error(f"Actual: Assertion Failed - {str(e)}", indent=1)
+            self.fail_mark(f"STEP {step_num}: {name}", indent=1)
+            raise
+        except BaseException as e:
+            if type(e).__name__ == "Skipped":
+                self.info(f"Actual: Skipped - {str(e)}", indent=1)
+                self.skip_mark(f"STEP {step_num}: {name}", indent=1)
+                self.info("="*60)
+                raise
+            if isinstance(e, Exception):
+                self.error(f"Actual: Exception Raised - {type(e).__name__}: {str(e)}", indent=1)
+                self.fail_mark(f"STEP {step_num}: {name}", indent=1)
+            raise
+
+@pytest.fixture
+def step_logger(request):
+    return TestLogger(request.node.nodeid)

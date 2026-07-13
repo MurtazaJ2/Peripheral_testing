@@ -67,7 +67,7 @@ def _ensure_watchdog_accessible(watchdog_path):
         )
 
 
-def test_watchdog_enable_and_feed(board_config):
+def test_watchdog_enable_and_feed(board_config, step_logger):
     """
     Validates hardware watchdog: enable, configure, feed, graceful disarm.
     No wiring required — purely internal silicon.
@@ -85,8 +85,8 @@ def test_watchdog_enable_and_feed(board_config):
     timeout_val    = board_config["watchdog_timeout"]
     feeding_cycles = board_config["watchdog_feed_cycles"]
 
-    print("\n" + "="*60, flush=True)
-    print("🐕 WATCHDOG VALIDATION: ENABLE & FEED", flush=True)
+    step_logger.info("="*60)
+    step_logger.info("WATCHDOG VALIDATION: ENABLE & FEED")
 
     # ── Pre-check: device node exists ────────────────────────────────────────
     if not os.path.exists(watchdog_path):
@@ -95,7 +95,7 @@ def test_watchdog_enable_and_feed(board_config):
             f"Fix: add 'dtparam=watchdog=on' to /boot/firmware/config.txt\n"
             f"     and reboot."
         )
-    print(f"  ✅ Device node exists: {watchdog_path}", flush=True)
+    step_logger.info(f"Device node exists: {watchdog_path}")
 
     # ── Pre-check: not already open (EBUSY guard) ─────────────────────────────
     try:
@@ -119,74 +119,50 @@ def test_watchdog_enable_and_feed(board_config):
     fd = None
     try:
         # ── Stage 1: Open (arms the watchdog) ─────────────────────────────────
-        print("\n  📋 Stage 1: Opening watchdog device (arm)...", flush=True)
-        fd = os.open(watchdog_path, os.O_WRONLY)
-        print(f"  ✅ Watchdog armed — countdown started.", flush=True)
+        with step_logger.step("Arm Watchdog", action=f"Open {watchdog_path}", expected="Watchdog opens successfully") as step:
+            fd = os.open(watchdog_path, os.O_WRONLY)
+            step.success("Watchdog armed — countdown started.")
 
         # ── Stage 2: Configure timeout ────────────────────────────────────────
-        print(f"\n  📋 Stage 2: Setting timeout to {timeout_val}s...", flush=True)
-        fcntl.ioctl(fd, WDIOC_SETTIMEOUT, struct.pack("i", timeout_val))
-
-        buf = fcntl.ioctl(fd, WDIOC_GETTIMEOUT, struct.pack("i", 0))
-        current_timeout = struct.unpack("i", buf)[0]
-
-        assert current_timeout == timeout_val, \
-            f"Timeout mismatch: requested {timeout_val}s, silicon reports {current_timeout}s."
-        print(f"  ✅ Timeout confirmed: {current_timeout}s.", flush=True)
+        with step_logger.step(f"Set Timeout ({timeout_val}s)", action="WDIOC_SETTIMEOUT", expected=f"Timeout is {timeout_val}s") as step:
+            fcntl.ioctl(fd, WDIOC_SETTIMEOUT, struct.pack("i", timeout_val))
+            buf = fcntl.ioctl(fd, WDIOC_GETTIMEOUT, struct.pack("i", 0))
+            current_timeout = struct.unpack("i", buf)[0]
+            assert current_timeout == timeout_val, \
+                f"Timeout mismatch: requested {timeout_val}s, silicon reports {current_timeout}s."
+            step.success(f"Timeout confirmed: {current_timeout}s.")
 
         # ── Stage 3: Check boot status flags ──────────────────────────────────
-        print(f"\n  📋 Stage 3: Checking boot status flags...", flush=True)
-        try:
-            buf = fcntl.ioctl(fd, WDIOC_GETBOOTSTATUS, struct.pack("i", 0))
-            boot_status = struct.unpack("i", buf)[0]
-            if boot_status & WDIOF_CARDRESET:
-                print(
-                    f"  ℹ️  WDIOF_CARDRESET set — last reboot was caused by "
-                    f"watchdog starvation.",
-                    flush=True
-                )
-            else:
-                print(
-                    f"  ✅ Last reboot was clean (not watchdog-triggered).",
-                    flush=True
-                )
-        except OSError:
-            print("  ⚠️  GETBOOTSTATUS not supported by this driver.", flush=True)
+        with step_logger.step("Check Boot Status Flags", action="WDIOC_GETBOOTSTATUS", expected="Read successfully") as step:
+            try:
+                buf = fcntl.ioctl(fd, WDIOC_GETBOOTSTATUS, struct.pack("i", 0))
+                boot_status = struct.unpack("i", buf)[0]
+                if boot_status & WDIOF_CARDRESET:
+                    step.success("WDIOF_CARDRESET set — last reboot was caused by watchdog starvation.")
+                else:
+                    step.success("Last reboot was clean (not watchdog-triggered).")
+            except OSError:
+                step.success("GETBOOTSTATUS not supported by this driver.")
 
         # ── Stage 4: Feed loop ────────────────────────────────────────────────
         sleep_interval = timeout_val * 0.4
-        print(
-            f"\n  📋 Stage 4: Feed loop — {feeding_cycles} cycles "
-            f"at {sleep_interval:.1f}s intervals...",
-            flush=True
-        )
-
-        for i in range(1, feeding_cycles + 1):
-            time.sleep(sleep_interval)
-
-            # KEEPALIVE returns the timeout value on success — verify it
-            try:
-                result = fcntl.ioctl(fd, WDIOC_KEEPALIVE, struct.pack("i", 0))
-                # Some drivers return 0 on success — both 0 and non-zero are OK
-                # What matters is no exception was raised
-                print(
-                    f"    ✅ Cycle {i}/{feeding_cycles}: "
-                    f"Fed at {i * sleep_interval:.1f}s elapsed.",
-                    flush=True
-                )
-            except OSError as e:
-                pytest.fail(
-                    f"Feed cycle {i} FAILED: KEEPALIVE ioctl returned error: {e}\n"
-                    f"Watchdog may have already expired or driver is broken."
-                )
+        with step_logger.step("Feed Watchdog Loop", action=f"{feeding_cycles} cycles at {sleep_interval:.1f}s intervals", expected="KEEPALIVE ioctl succeeds every time") as step:
+            for i in range(1, feeding_cycles + 1):
+                time.sleep(sleep_interval)
+                try:
+                    result = fcntl.ioctl(fd, WDIOC_KEEPALIVE, struct.pack("i", 0))
+                    step_logger.info(f"    Cycle {i}/{feeding_cycles}: Fed at {i * sleep_interval:.1f}s elapsed.")
+                except OSError as e:
+                    pytest.fail(
+                        f"Feed cycle {i} FAILED: KEEPALIVE ioctl returned error: {e}\n"
+                        f"Watchdog may have already expired or driver is broken."
+                    )
+            step.success("Watchdog fed successfully for all cycles.")
 
         # ── Stage 5: Graceful disarm ──────────────────────────────────────────
-        print(f"\n  📋 Stage 5: Graceful disarm (writing magic 'V')...", flush=True)
-        os.write(fd, b'V')
-        print(
-            f"  ✅ Magic 'V' written — kernel will NOT reboot on close.",
-            flush=True
-        )
+        with step_logger.step("Graceful Disarm", action="Write magic 'V'", expected="Write succeeds") as step:
+            os.write(fd, b'V')
+            step.success("Magic 'V' written — kernel will NOT reboot on close.")
 
     except OSError as e:
         pytest.fail(f"Hardware/Driver Error: {e}")
@@ -198,20 +174,12 @@ def test_watchdog_enable_and_feed(board_config):
             except OSError:
                 pass
 
-    print("  ✅ SUCCESS: Watchdog armed, fed, and disarmed cleanly.", flush=True)
-    print("="*60 + "\n", flush=True)
+    step_logger.info("="*60)
 
 
-def test_watchdog_starvation_reboot(board_config, request):
+def test_watchdog_starvation_reboot(board_config, request, step_logger):
     """
     DESTRUCTIVE TEST: Proves that failing to feed the watchdog triggers a reboot.
-
-    TWO-PHASE WORKFLOW:
-      Phase 1 (this run):   Arm watchdog, close WITHOUT 'V' → Pi reboots
-      Phase 2 (after reboot): Run test_watchdog_post_reboot_verify to confirm
-                               the reboot was caused by the watchdog.
-
-    Safety guard: set 'allow_destructive_reboot: True' in board_config to run.
     """
     for key in ("watchdog_path", "watchdog_timeout"):
         assert key in board_config, f"board_config missing '{key}'"
@@ -225,55 +193,50 @@ def test_watchdog_starvation_reboot(board_config, request):
     watchdog_path = board_config["watchdog_path"]
     timeout_val   = board_config["watchdog_timeout"]
 
-    print("\n" + "="*60, flush=True)
-    print("💥 DESTRUCTIVE WATCHDOG: STARVATION REBOOT", flush=True)
-    print(f"⚠️  System will hard-reset in ~{timeout_val}s.", flush=True)
-    print("⚠️  SSH session will be severed. This is expected.", flush=True)
-    print("⚠️  After reboot, run test_watchdog_post_reboot_verify.", flush=True)
-    print("="*60 + "\n", flush=True)
-
-    print("  ⏳ Starting in 5 seconds — Ctrl+C to abort...", flush=True)
+    step_logger.info("="*60)
+    step_logger.info("DESTRUCTIVE WATCHDOG: STARVATION REBOOT")
+    step_logger.info(f"System will hard-reset in ~{timeout_val}s.")
+    step_logger.info("SSH session will be severed. This is expected.")
+    step_logger.info("After reboot, run test_watchdog_post_reboot_verify.")
+    
+    step_logger.info("Starting in 5 seconds — Ctrl+C to abort...")
     time.sleep(5)
 
     _ensure_watchdog_accessible(watchdog_path)
 
-    # Write a state file so post-reboot test knows starvation was triggered
     state_path = os.path.expanduser("~/watchdog_starvation_state.txt")
-    with open(state_path, "w") as f:
-        f.write(f"triggered_epoch={int(time.time())}\n")
-        f.write(f"timeout_val={timeout_val}\n")
+    with step_logger.step("Write State File", action="Write timestamp to file", expected="File written") as step:
+        with open(state_path, "w") as f:
+            f.write(f"triggered_epoch={int(time.time())}\n")
+            f.write(f"timeout_val={timeout_val}\n")
+        step.success("State file written.")
 
-    fd = None
-    try:
-        fd = os.open(watchdog_path, os.O_WRONLY)
-        fcntl.ioctl(fd, WDIOC_SETTIMEOUT, struct.pack("i", timeout_val))
-        print(
-            f"  ☠️  Watchdog armed with {timeout_val}s timeout. "
-            f"Closing WITHOUT magic 'V'...",
-            flush=True
-        )
-        # Close without 'V' — driver starts immediate countdown
-        os.close(fd)
+    with step_logger.step("Arm and Abandon Watchdog", action=f"Open {watchdog_path}, set timeout, close WITHOUT 'V'", expected="Device arms and countdown begins") as step:
         fd = None
+        try:
+            fd = os.open(watchdog_path, os.O_WRONLY)
+            fcntl.ioctl(fd, WDIOC_SETTIMEOUT, struct.pack("i", timeout_val))
+            step_logger.info(f"Watchdog armed with {timeout_val}s timeout. Closing WITHOUT magic 'V'...")
+            os.close(fd)
+            fd = None
+            step.success("Watchdog abandoned successfully.")
+        except Exception as e:
+            pytest.fail(f"Failed to trigger starvation: {e}")
+        finally:
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
 
-    except Exception as e:
-        pytest.fail(f"Failed to trigger starvation: {e}")
-
-    finally:
-        if fd is not None:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-
-    print(f"  ⏳ Hardware Watchdog will force a reset in {timeout_val}s.", flush=True)
-    print(f"  ⏳ Halting Pytest gracefully so report saves...", flush=True)
+    step_logger.info(f"Hardware Watchdog will force a reset in {timeout_val}s.")
+    step_logger.info("Halting Pytest gracefully so report saves...")
     request.session.shouldstop = "Intentional reboot triggered"
     
-    print("="*60 + "\n", flush=True)
+    step_logger.info("="*60)
 
 
-def test_watchdog_post_reboot_verify(board_config):
+def test_watchdog_post_reboot_verify(board_config, step_logger):
     """
     Phase 2 of starvation test — run AFTER the Pi reboots.
     Reads WDIOC_GETBOOTSTATUS to confirm the reboot was watchdog-caused.
@@ -284,92 +247,78 @@ def test_watchdog_post_reboot_verify(board_config):
     watchdog_path = board_config["watchdog_path"]
     state_path    = os.path.expanduser("~/watchdog_starvation_state.txt")
 
-    print("\n" + "="*60, flush=True)
-    print("🔍 WATCHDOG POST-REBOOT VERIFICATION", flush=True)
+    step_logger.info("="*60)
+    step_logger.info("WATCHDOG POST-REBOOT VERIFICATION")
 
-    # ── Confirm starvation was triggered before reboot ────────────────────────
-    if not os.path.exists(state_path):
-        pytest.skip(
-            "State file not found — starvation test was not run.\n"
-            "Run test_watchdog_starvation_reboot first."
-        )
-
-    state = {}
-    with open(state_path) as f:
-        for line in f:
-            if "=" in line:
-                k, v = line.strip().split("=", 1)
-                state[k] = v
-
-    triggered_epoch = int(state.get("triggered_epoch", 0))
-    timeout_val     = int(state.get("timeout_val", 15))
-
-    # ── Confirm reboot actually happened (uptime < time since trigger) ────────
-    with open("/proc/uptime") as f:
-        uptime_s = float(f.read().split()[0])
-
-    elapsed_since_trigger = int(time.time()) - triggered_epoch
-
-    if uptime_s > elapsed_since_trigger:
-        pytest.fail(
-            f"No reboot detected.\n"
-            f"Uptime ({uptime_s:.0f}s) > elapsed since trigger "
-            f"({elapsed_since_trigger}s).\n"
-            f"Run test_watchdog_starvation_reboot and wait for the reboot."
-        )
-
-    print(f"  ✅ Reboot confirmed: uptime={uptime_s:.0f}s, "
-          f"triggered {elapsed_since_trigger}s ago.", flush=True)
-
-    # ── Read boot status from watchdog driver ─────────────────────────────────
-    _ensure_watchdog_accessible(watchdog_path)
-
-    try:
-        fd = os.open(watchdog_path, os.O_WRONLY)
-        try:
-            buf         = fcntl.ioctl(fd, WDIOC_GETBOOTSTATUS, struct.pack("i", 0))
-            boot_status = struct.unpack("i", buf)[0]
-            print(f"  ℹ️  WDIOC_GETBOOTSTATUS = {boot_status:#010x}", flush=True)
-
-            wd_reset_detected = bool(boot_status & WDIOF_CARDRESET)
-
-            # Fallback for Raspberry Pi: The bcm2835_wdt driver often returns 0 for GETBOOTSTATUS.
-            # Use vcgencmd get_rsts to query the VideoCore reset register directly.
-            if not wd_reset_detected:
-                try:
-                    rsts_out = subprocess.run(
-                        ["vcgencmd", "get_rsts"],
-                        capture_output=True, text=True, check=True
-                    ).stdout.strip()
-                    print(f"  ℹ️  vcgencmd fallback = {rsts_out}", flush=True)
-                    # "20" (bit 5) indicates a watchdog reset on Pi
-                    if "20" in rsts_out:
-                        wd_reset_detected = True
-                        print("  ✅ vcgencmd confirmed WDIOF_CARDRESET equivalent.", flush=True)
-                except Exception as e:
-                    print(f"  ⚠️  vcgencmd fallback failed: {e}", flush=True)
-
-            assert wd_reset_detected, \
-                f"WDIOF_CARDRESET bit NOT set (boot_status={boot_status:#010x}).\n" \
-                f"The watchdog driver does not report a watchdog-caused reboot.\n" \
-                f"The Pi may have rebooted for another reason, or the driver\n" \
-                f"does not support GETBOOTSTATUS."
-
-            print(
-                f"  ✅ WDIOF_CARDRESET confirmed — last reboot was "
-                f"watchdog-triggered.",
-                flush=True
+    with step_logger.step("Verify Starvation State", action=f"Read {state_path}", expected="State file exists and is valid") as step:
+        if not os.path.exists(state_path):
+            pytest.skip(
+                "State file not found — starvation test was not run.\n"
+                "Run test_watchdog_starvation_reboot first."
             )
-        finally:
-            os.write(fd, b'V')   # disarm immediately after reading
-            os.close(fd)
 
-    except OSError as e:
-        pytest.fail(f"Cannot read boot status: {e}")
+        state = {}
+        with open(state_path) as f:
+            for line in f:
+                if "=" in line:
+                    k, v = line.strip().split("=", 1)
+                    state[k] = v
 
-    # ── Cleanup ───────────────────────────────────────────────────────────────
-    os.remove(state_path)
-    print(f"  🗑️  State file removed.", flush=True)
-    print("  ✅ SUCCESS: Watchdog starvation reboot confirmed by hardware flag.",
-          flush=True)
-    print("="*60 + "\n", flush=True)
+        triggered_epoch = int(state.get("triggered_epoch", 0))
+        timeout_val     = int(state.get("timeout_val", 15))
+        step.success("State file read successfully.")
+
+    with step_logger.step("Confirm Reboot Timings", action="Compare uptime to trigger epoch", expected="Uptime is less than elapsed time since trigger") as step:
+        with open("/proc/uptime") as f:
+            uptime_s = float(f.read().split()[0])
+
+        elapsed_since_trigger = int(time.time()) - triggered_epoch
+
+        if uptime_s > elapsed_since_trigger:
+            pytest.fail(
+                f"No reboot detected.\n"
+                f"Uptime ({uptime_s:.0f}s) > elapsed since trigger "
+                f"({elapsed_since_trigger}s).\n"
+                f"Run test_watchdog_starvation_reboot and wait for the reboot."
+            )
+        step.success(f"Reboot confirmed: uptime={uptime_s:.0f}s, triggered {elapsed_since_trigger}s ago.")
+
+    with step_logger.step("Verify Watchdog Reboot Flag", action="WDIOC_GETBOOTSTATUS or vcgencmd get_rsts", expected="WDIOF_CARDRESET is set") as step:
+        _ensure_watchdog_accessible(watchdog_path)
+        try:
+            fd = os.open(watchdog_path, os.O_WRONLY)
+            try:
+                buf         = fcntl.ioctl(fd, WDIOC_GETBOOTSTATUS, struct.pack("i", 0))
+                boot_status = struct.unpack("i", buf)[0]
+                step_logger.info(f"WDIOC_GETBOOTSTATUS = {boot_status:#010x}")
+
+                wd_reset_detected = bool(boot_status & WDIOF_CARDRESET)
+
+                if not wd_reset_detected:
+                    try:
+                        rsts_out = subprocess.run(
+                            ["vcgencmd", "get_rsts"],
+                            capture_output=True, text=True, check=True
+                        ).stdout.strip()
+                        step_logger.info(f"vcgencmd fallback = {rsts_out}")
+                        if "20" in rsts_out:
+                            wd_reset_detected = True
+                            step_logger.info("vcgencmd confirmed WDIOF_CARDRESET equivalent.")
+                    except Exception as e:
+                        step_logger.info(f"vcgencmd fallback failed: {e}")
+
+                assert wd_reset_detected, \
+                    f"WDIOF_CARDRESET bit NOT set (boot_status={boot_status:#010x}).\n" \
+                    f"The watchdog driver does not report a watchdog-caused reboot."
+                step.success("WDIOF_CARDRESET confirmed — last reboot was watchdog-triggered.")
+            finally:
+                os.write(fd, b'V')
+                os.close(fd)
+        except OSError as e:
+            pytest.fail(f"Cannot read boot status: {e}")
+
+    with step_logger.step("Cleanup State", action="Remove state file", expected="File removed") as step:
+        os.remove(state_path)
+        step.success("State file removed.")
+
+    step_logger.info("="*60)

@@ -1,13 +1,14 @@
 {
-  "created": 1783319813.9505572,
-  "duration": 184.2498369216919,
-  "exitcode": 2,
+  "created": 1783934184.5868597,
+  "duration": 23.956578016281128,
+  "exitcode": 0,
   "root": "/home/rpi/hw-val-framework",
   "environment": {},
   "summary": {
-    "passed": 13,
-    "total": 13,
-    "collected": 13
+    "passed": 6,
+    "skipped": 1,
+    "total": 7,
+    "collected": 7
   },
   "collectors": [
     {
@@ -15,380 +16,213 @@
       "outcome": "passed",
       "result": [
         {
-          "nodeid": "test_pcie_software.py",
+          "nodeid": "test_ethernet.py",
           "type": "Module"
         }
       ]
     },
     {
-      "nodeid": "test_pcie_software.py",
+      "nodeid": "test_ethernet.py",
       "outcome": "passed",
       "result": [
         {
-          "nodeid": "test_pcie_software.py::test_internal_device_present",
+          "nodeid": "test_ethernet.py::test_ethernet_interface_state",
           "type": "Function",
-          "lineno": 24
+          "lineno": 6
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_link_speed",
+          "nodeid": "test_ethernet.py::test_ethernet_ip_check",
           "type": "Function",
-          "lineno": 39
+          "lineno": 28
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_link_width",
+          "nodeid": "test_ethernet.py::test_ethernet_ping_connectivity",
           "type": "Function",
-          "lineno": 63
+          "lineno": 51
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_driver_loaded",
+          "nodeid": "test_ethernet.py::test_ethernet_latency",
           "type": "Function",
-          "lineno": 86
+          "lineno": 72
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_bar_assignment",
+          "nodeid": "test_ethernet.py::test_ethernet_socket",
           "type": "Function",
-          "lineno": 102
+          "lineno": 100
         },
         {
-          "nodeid": "test_pcie_software.py::test_internal_no_pcie_errors",
+          "nodeid": "test_ethernet.py::test_ethernet_speedtest",
           "type": "Function",
-          "lineno": 118
+          "lineno": 123
         },
         {
-          "nodeid": "test_pcie_software.py::test_rp1_peripherals_detected",
+          "nodeid": "test_ethernet.py::test_ethernet_iperf",
           "type": "Function",
-          "lineno": 138
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_rp1_data_transfer",
-          "type": "Function",
-          "lineno": 154
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_rp1_throughput",
-          "type": "Function",
-          "lineno": 170
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_interrupts",
-          "type": "Function",
-          "lineno": 191
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_remove_stage1",
-          "type": "Function",
-          "lineno": 226
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_post_reboot",
-          "type": "Function",
-          "lineno": 252
-        },
-        {
-          "nodeid": "test_pcie_software.py::test_internal_24hr_stability",
-          "type": "Function",
-          "lineno": 264
+          "lineno": 146
         }
       ]
     }
   ],
   "tests": [
     {
-      "nodeid": "test_pcie_software.py::test_internal_device_present",
-      "lineno": 24,
+      "nodeid": "test_ethernet.py::test_ethernet_interface_state",
+      "lineno": 6,
       "outcome": "passed",
       "keywords": [
-        "test_internal_device_present",
-        "test_pcie_software.py",
+        "test_ethernet_interface_state",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.0030638289999842527,
+        "duration": 0.0031699499995738734,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.019620952999957808,
+        "duration": 0.00043026200000895187,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00016714699995645788,
+        "duration": 0.00016735299868742004,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_link_speed",
-      "lineno": 39,
+      "nodeid": "test_ethernet.py::test_ethernet_ip_check",
+      "lineno": 28,
       "outcome": "passed",
       "keywords": [
-        "test_internal_link_speed",
-        "test_pcie_software.py",
+        "test_ethernet_ip_check",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00024044399970080121,
+        "duration": 0.00026778000028571114,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.04145923699979903,
+        "duration": 0.0020886080001218943,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00013753699977314682,
+        "duration": 0.0001579649997438537,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_link_width",
-      "lineno": 63,
+      "nodeid": "test_ethernet.py::test_ethernet_ping_connectivity",
+      "lineno": 51,
       "outcome": "passed",
       "keywords": [
-        "test_internal_link_width",
-        "test_pcie_software.py",
+        "test_ethernet_ping_connectivity",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00022592599998461083,
+        "duration": 0.00032048399953055196,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.04179290399997626,
+        "duration": 3.022228115998587,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00013018500021644286,
+        "duration": 0.00021072399977128953,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_driver_loaded",
-      "lineno": 86,
+      "nodeid": "test_ethernet.py::test_ethernet_latency",
+      "lineno": 72,
       "outcome": "passed",
       "keywords": [
-        "test_internal_driver_loaded",
-        "test_pcie_software.py",
+        "test_ethernet_latency",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.0002265179996356892,
+        "duration": 0.0004866149993176805,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.04068668300033096,
+        "duration": 4.057374639000045,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00013616700016427785,
+        "duration": 0.00021498299975064583,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_bar_assignment",
-      "lineno": 102,
+      "nodeid": "test_ethernet.py::test_ethernet_socket",
+      "lineno": 100,
       "outcome": "passed",
       "keywords": [
-        "test_internal_bar_assignment",
-        "test_pcie_software.py",
+        "test_ethernet_socket",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00022872199997436837,
+        "duration": 0.00046061499961069785,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.041000626999903034,
+        "duration": 0.023131638999984716,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00013512899977285997,
+        "duration": 0.00016452000090794172,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_internal_no_pcie_errors",
-      "lineno": 118,
+      "nodeid": "test_ethernet.py::test_ethernet_speedtest",
+      "lineno": 123,
       "outcome": "passed",
       "keywords": [
-        "test_internal_no_pcie_errors",
-        "test_pcie_software.py",
+        "test_ethernet_speedtest",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00023055500014379504,
+        "duration": 0.0003989470005762996,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.03277539700002308,
+        "duration": 16.79333436500019,
         "outcome": "passed"
       },
       "teardown": {
-        "duration": 0.00014203599994289107,
+        "duration": 0.00015289000111806672,
         "outcome": "passed"
       }
     },
     {
-      "nodeid": "test_pcie_software.py::test_rp1_peripherals_detected",
-      "lineno": 138,
-      "outcome": "passed",
+      "nodeid": "test_ethernet.py::test_ethernet_iperf",
+      "lineno": 146,
+      "outcome": "skipped",
       "keywords": [
-        "test_rp1_peripherals_detected",
-        "test_pcie_software.py",
+        "test_ethernet_iperf",
+        "test_ethernet.py",
         "hw-val-framework",
         ""
       ],
       "setup": {
-        "duration": 0.00022790699995312025,
+        "duration": 0.0003363920004630927,
         "outcome": "passed"
       },
       "call": {
-        "duration": 0.024987187000078848,
-        "outcome": "passed"
+        "duration": 0.003115393999905791,
+        "outcome": "skipped",
+        "longrepr": "('/home/rpi/hw-val-framework/test_ethernet.py', 170, \"Skipped: iPerf3 failed to connect to 192.168.0.19.\\nThis usually means the iperf3 server is not running on the host machine.\\nPlease start it with: 'iperf3 -s' on 192.168.0.19\\nError: iperf3: error - unable to connect to server - server may have stopped running or use a different port, firewall issue, etc.: Connection refused\")"
       },
       "teardown": {
-        "duration": 0.000131667000005109,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_rp1_data_transfer",
-      "lineno": 154,
-      "outcome": "passed",
-      "keywords": [
-        "test_rp1_data_transfer",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.0002262779999000486,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.009622024000236706,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00013014800015298533,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_rp1_throughput",
-      "lineno": 170,
-      "outcome": "passed",
-      "keywords": [
-        "test_rp1_throughput",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022501800003738026,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.06918321700004526,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00013405600020632846,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_interrupts",
-      "lineno": 191,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_interrupts",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022551800020664814,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 1.0346694590002699,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.0001272409999728552,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_remove_stage1",
-      "lineno": 226,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_remove_stage1",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00022520299989992054,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.021009581000271282,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00017716599995765137,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_post_reboot",
-      "lineno": 252,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_post_reboot",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.003739611000000309,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 0.06277553700000027,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00021383300000010763,
-        "outcome": "passed"
-      }
-    },
-    {
-      "nodeid": "test_pcie_software.py::test_internal_24hr_stability",
-      "lineno": 264,
-      "outcome": "passed",
-      "keywords": [
-        "test_internal_24hr_stability",
-        "test_pcie_software.py",
-        "hw-val-framework",
-        ""
-      ],
-      "setup": {
-        "duration": 0.00029899999999827287,
-        "outcome": "passed"
-      },
-      "call": {
-        "duration": 11.66139429,
-        "outcome": "passed"
-      },
-      "teardown": {
-        "duration": 0.00022012999999532212,
+        "duration": 0.0002692239995667478,
         "outcome": "passed"
       }
     }

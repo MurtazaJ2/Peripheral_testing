@@ -89,7 +89,7 @@ def ai_generate_config(host, user, password, model_name):
         except Exception:
             pass
             
-    print("🧠 [Detect] Sending hardware topology to AI for schema synthesis...")
+    print("[INFO]  [Detect] Sending hardware topology to AI for schema synthesis...")
     
     try:
         from langchain_openai import ChatOpenAI
@@ -164,7 +164,7 @@ def ai_generate_config(host, user, password, model_name):
             
         return config
     except Exception as e:
-        print(f"❌ [Detect] AI Generation failed: {e}")
+        print(f"[ERROR] [Detect] AI Generation failed: {e}")
         return None
 
 def discover_and_update_board(yaml_path="boards.yaml", host=None, user=None, password=None):
@@ -187,27 +187,27 @@ def discover_and_update_board(yaml_path="boards.yaml", host=None, user=None, pas
                 break
                 
     if not remote_config:
-        print("❌ [Detect] No remote configuration found in boards.yaml to perform discovery.")
+        print("[ERROR] [Detect] No remote configuration found in boards.yaml to perform discovery.")
         return None
         
     target_host = remote_config.get("host")
     target_user = remote_config.get("user")
     
-    print(f"🔍 [Detect] Connecting to {target_user}@{target_host} to discover hardware...")
+    print(f"[INFO]  [Detect] Connecting to {target_user}@{target_host} to discover hardware...")
     
     try:
         ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", f"{target_user}@{target_host}", "cat /sys/firmware/devicetree/base/model"]
         result = subprocess.run(ssh_cmd, capture_output=True, text=True, check=True)
         model_string = result.stdout.strip().rstrip('\x00')
     except subprocess.CalledProcessError as e:
-        print(f"❌ [Detect] Failed to connect and read device tree. SSH exited with {e.returncode}")
+        print(f"[ERROR] [Detect] Failed to connect and read device tree. SSH exited with {e.returncode}")
         print(f"Error output: {e.stderr}")
         return None
     except Exception as e:
-        print(f"❌ [Detect] Failed to connect and read device tree: {e}")
+        print(f"[ERROR] [Detect] Failed to connect and read device tree: {e}")
         return None
         
-    print(f"🧩 [Detect] Found hardware: {model_string}")
+    print(f"[INFO]  [Detect] Found hardware: {model_string}")
     
     detected_board = None
     if "Raspberry Pi 5" in model_string:
@@ -219,15 +219,15 @@ def discover_and_update_board(yaml_path="boards.yaml", host=None, user=None, pas
         clean_model_name = re.sub(r'[^a-zA-Z0-9]+', '_', model_string).strip('_').lower()
         detected_board = clean_model_name
         
-        print(f"⚠️ [Detect] Unrecognized board '{model_string}'. Invoking AI for synthesis...")
+        print(f"[WARN]  [Detect] Unrecognized board '{model_string}'. Invoking AI for synthesis...")
         ai_config = ai_generate_config(target_host, target_user, remote_config.get("password"), model_string)
         
         if ai_config:
             TEMPLATES[detected_board] = ai_config
-            print(f"✅ [Detect] AI successfully generated configuration for {detected_board}.")
+            print(f"[PASS]  [Detect] AI successfully generated configuration for {detected_board}.")
             
             print("\n" + "="*60)
-            print("🤖 AI-GENERATED CONFIGURATION (PLEASE REVIEW):")
+            print("[INFO]  AI-GENERATED CONFIGURATION (PLEASE REVIEW):")
             print("="*60)
             print(yaml.dump({detected_board: ai_config}, default_flow_style=False, sort_keys=False))
             print("="*60)
@@ -244,25 +244,25 @@ def discover_and_update_board(yaml_path="boards.yaml", host=None, user=None, pas
                     choice = input("Do you approve this configuration? (y/N): ").strip().lower()
                     
                 if choice != 'y':
-                    print("❌ [Detect] User rejected AI configuration. Exiting.")
+                    print("[ERROR] [Detect] User rejected AI configuration. Exiting.")
                     return None
             except Exception as e:
-                print(f"⚠️ [Detect] Could not prompt user: {e}. Proceeding cautiously...")
+                print(f"[WARN]  [Detect] Could not prompt user: {e}. Proceeding cautiously...")
         else:
-            print("❌ [Detect] AI synthesis failed. Falling back to generic template.")
+            print("[ERROR] [Detect] AI synthesis failed. Falling back to generic template.")
             detected_board = "generic_board"
             TEMPLATES["generic_board"] = TEMPLATES["raspberry_pi_5"].copy()
 
     # Update boards.yaml if the board isn't there
     if detected_board not in configs:
-        print(f"📝 [Detect] Adding new profile '{detected_board}' to {yaml_path}...")
+        print(f"[INFO]  [Detect] Adding new profile '{detected_board}' to {yaml_path}...")
         configs[detected_board] = TEMPLATES[detected_board].copy()
         configs[detected_board]["remote"] = remote_config
         
         with open(yaml_path, "w") as f:
             yaml.dump(configs, f, default_flow_style=False, sort_keys=False)
     else:
-        print(f"✅ [Detect] Profile '{detected_board}' already exists in {yaml_path}.")
+        print(f"[INFO]  [Detect] Profile '{detected_board}' already exists in {yaml_path}.")
             
     return detected_board
 
@@ -276,6 +276,6 @@ if __name__ == "__main__":
     
     board = discover_and_update_board(host=args.host, user=args.user, password=args.password)
     if board:
-        print(f"✅ Board detection complete. Target board is: {board}")
+        print(f"[PASS]  Board detection complete. Target board is: {board}")
     else:
-        print("❌ Board detection failed.")
+        print("[ERROR] Board detection failed.")

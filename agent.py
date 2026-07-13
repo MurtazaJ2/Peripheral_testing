@@ -26,7 +26,7 @@ class AgentState(TypedDict):
 
 def load_pytest_report(state: AgentState) -> AgentState:
     """Reads the JSON output from the latest Pytest run."""
-    print("[Agent] 🔍 Analyzing Pytest Report...")
+    print("[INFO]  [Agent] Analyzing Pytest Report...")
     try:
         with open(".report.json", "r") as f:
             report = json.load(f)
@@ -37,16 +37,16 @@ def load_pytest_report(state: AgentState) -> AgentState:
         ]
         return {"pytest_report": report, "failed_tests": failed_tests}
     except FileNotFoundError:
-        print("[Agent] ⚠️ No .report.json found! Ensure tests run with --json-report")
+        print("[WARN]  [Agent] No .report.json found! Ensure tests run with --json-report")
         return {"pytest_report": {}, "failed_tests": []}
 
 def gather_diagnostics(state: AgentState) -> AgentState:
     """Uses Fabric to SSH into the Pi and pull live diagnostic data (dmesg, IRQs)."""
     if not state.get("failed_tests"):
-        print("[Agent] ✅ No failed tests detected. Skipping diagnostics.")
+        print("[PASS]  [Agent] No failed tests detected. Skipping diagnostics.")
         return {"dmesg_logs": "", "irq_logs": ""}
 
-    print("[Agent] 🩺 Gathering Live Diagnostics from Hardware...")
+    print("[INFO]  [Agent] Gathering Live Diagnostics from Hardware...")
     
     # Load board config to get SSH credentials
     with open("boards.yaml", "r") as f:
@@ -64,7 +64,7 @@ def gather_diagnostics(state: AgentState) -> AgentState:
             irqs = c.run("cat /proc/interrupts", hide=True, in_stream=False).stdout
             return {"dmesg_logs": dmesg, "irq_logs": irqs}
     except Exception as e:
-        print(f"[Agent] ❌ SSH Diagnostic Failed: {e}")
+        print(f"[ERROR] [Agent] SSH Diagnostic Failed: {e}")
         return {"dmesg_logs": f"Error gathering dmesg: {e}", "irq_logs": ""}
 
 def analyze_failure(state: AgentState) -> AgentState:
@@ -72,7 +72,7 @@ def analyze_failure(state: AgentState) -> AgentState:
     if not state.get("failed_tests"):
         return {"diagnosis": "All tests passed. System is healthy."}
 
-    print("[Agent] 🧠 Reasoning over Hardware Failures...")
+    print("[INFO]  [Agent] Reasoning over Hardware Failures...")
     
     model_name = os.environ.get("MODEL_NAME", "openai/gpt-oss-120b:free")
     
@@ -98,7 +98,7 @@ def analyze_failure(state: AgentState) -> AgentState:
     Analyze the logs and the failed tests. Provide a concise root cause analysis (RCA).
     """
     
-    print("[Agent] ⏳ Enforcing 3-second cooldown to respect OpenRouter's 30 RPM limit...")
+    print("[INFO]  [Agent] Enforcing 3-second cooldown to respect OpenRouter's 30 RPM limit...")
     import time
     time.sleep(3)
     
@@ -109,7 +109,7 @@ def analyze_failure(state: AgentState) -> AgentState:
             break
         except Exception as e:
             if attempt < max_retries - 1:
-                print(f"[Agent] ⚠️ API Error encountered ({e}). Sleeping for 60 seconds before retrying...")
+                print(f"[WARN]  [Agent] API Error encountered ({e}). Sleeping for 60 seconds before retrying...")
                 time.sleep(60)
             else:
                 return {"diagnosis": f"Analysis aborted due to repeated API errors: {e}"}
@@ -123,23 +123,23 @@ def propose_remediation(state: AgentState) -> AgentState:
     if not state.get("failed_tests"):
         return {"suggested_action": "None"}
         
-    print("[Agent] 📝 Generating Standalone RCA Report...")
+    print("[INFO]  [Agent] Generating Standalone RCA Report...")
     
-    report_content = f"# 🚨 BSP Validation Agent RCA Report\n\n"
-    report_content += f"## ❌ Failed Tests\n"
+    report_content = f"# BSP Validation Agent RCA Report\n\n"
+    report_content += f"## Failed Tests\n"
     for test in state.get("failed_tests", []):
         report_content += f"- `{test.get('nodeid')}`\n"
         
-    report_content += f"\n## 🧠 Agent Diagnosis\n"
+    report_content += f"\n## Agent Diagnosis\n"
     report_content += f"{state.get('diagnosis', 'No diagnosis available.')}\n"
     
-    report_content += f"\n## 🛠️ Recommended Remediation\n"
+    report_content += f"\n## Recommended Remediation\n"
     report_content += f"Review the diagnosis above. If this is a software regression, apply the necessary patches. If it is a physical layer issue, check connections and reboot the hardware.\n"
     
     with open("bsp_rca_report.md", "w") as f:
         f.write(report_content)
         
-    print("[Agent] ✅ Saved Root Cause Analysis to 'bsp_rca_report.md'")
+    print("[PASS]  [Agent] Saved Root Cause Analysis to 'bsp_rca_report.md'")
     return {"suggested_action": "Report Generated"}
 
 # --- Graph Definition ---
@@ -176,6 +176,6 @@ workflow.add_edge("propose_remediation", END)
 app = workflow.compile()
 
 if __name__ == "__main__":
-    print("\n🚀 Starting Autonomous BSP Validation Agent...")
+    print("\n[INFO]  Starting Autonomous BSP Validation Agent...")
     final_state = app.invoke({"board_config": {}})
-    print("\n✅ Agent Execution Complete.")
+    print("\n[INFO]  Agent Execution Complete.")
