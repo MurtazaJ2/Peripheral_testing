@@ -16,160 +16,151 @@ def pytest_cmdline_main(config):
     if os.environ.get("RUNNING_ON_PI"):
         return None 
 
-    board_name = config.getoption("--board")
+    board_arg = config.getoption("--board")
     
-    if board_name == "auto":
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Auto-detecting board hardware...")
-        from detect_board import discover_and_update_board
-        detected = discover_and_update_board()
-        if not detected:
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [ERROR] [HOST] Could not auto-detect board. Exiting.")
-            sys.exit(1)
-        board_name = detected
-        config.option.board = detected
-
     with open("boards.yaml", "r") as f:
         configs = yaml.safe_load(f)
     
-    board = configs.get(board_name)
-    
-    # 2. If the board profile has no remote config, run locally (e.g., debugging)
-    if not board or "remote" not in board:
-        return None 
+    target_boards = []
+    if board_arg == "all":
+        target_boards = [name for name, conf in configs.items() if isinstance(conf, dict) and "remote" in conf]
+    else:
+        target_boards = [b.strip() for b in board_arg.split(',')]
         
-    host = board["remote"]["host"]
-    user = board["remote"]["user"]
-    remote_dir = f"~/hw-val-framework"
-
-    print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Intercepting Pytest. Auto-deploying to {user}@{host}...")
-
-    # 3. Auto-Install OS Dependencies on the Pi (Fixed syntax error here)
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [1/4] Installing OS dependencies on Pi (if missing)...")
-    os_deps_cmd = f"ssh {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
-    subprocess.run(os_deps_cmd, shell=True)
-
-    # 4. Sync Code to Pi (Using tar to instantly compress, send, and extract while ignoring caches)
-    # Because of this design, requirements.txt is automatically synced to the Pi!
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [2/4] Syncing code to Pi...")
-    sync_cmd = f"tar --exclude='venv' --exclude='__pycache__' --exclude='.pytest_cache' -czf - . | ssh {user}@{host} 'mkdir -p {remote_dir} && cd {remote_dir} && tar -xzf -'"
-    subprocess.run(sync_cmd, shell=True)
-
-    # 5. Auto-Install Python Dependencies on Pi using requirements.txt
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [3/4] Configuring Python Environment on Pi...")
-    setup_cmd = f"ssh {user}@{host} 'cd {remote_dir} && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt'"
-    subprocess.run(setup_cmd, shell=True)
-
-    # 6. Setup Local Logging Directory
+    if not target_boards:
+        return None
+        
     os.makedirs("logs", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = f"logs/run_{board_name}_{timestamp}.log"
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Live logs will be saved to: {log_file}")
-
-    # 7. Clear tracker on Pi and Execute Tests
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [4/4] Executing test suite on Pi in continuous session mode...")
     args = " ".join(config.invocation_params.args)
-    subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True)
     
+    from concurrent.futures import ThreadPoolExecutor
     import time
     import glob
     import json
     
-    session_part = 1
-    # Cleanup any old parts left over from crashes
-    for f in glob.glob(".report_part_*.json"):
-        os.remove(f)
+    print(f"\\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Starting concurrent test execution on boards: {', '.join(target_boards)}")
+    
+    def execute_on_board(board_name):
+        board = configs.get(board_name)
+        if not board or "remote" not in board:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [WARN]  [{board_name}] No remote configuration found. Skipping.")
+            return board_name, 0
+            
+        host = board["remote"]["host"]
+        user = board["remote"]["user"]
+        remote_dir = f"~/hw-val-framework"
+        log_file = f"logs/run_{board_name}_{timestamp}.log"
+        json_out_file = f".report_{board_name}.json"
         
-    with open(log_file, "w") as log:
-        while True:
-            # Wait for board to be online before starting
-            board_online = False
-            for _ in range(36): # 3 minutes
-                ping_proc = subprocess.run(f"ssh -o ConnectTimeout=3 {user}@{host} 'echo ready'", shell=True, capture_output=True)
-                if ping_proc.returncode == 0:
-                    board_online = True
-                    break
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]    Waiting for board to become reachable over SSH...")
-                time.sleep(5)
-                
-            if not board_online:
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [ERROR] Board failed to come online. Aborting run.")
-                sys.exit(1)
-                
-            # If we just recovered from a hard crash, the previous session's partial report is stuck on the Pi.
-            # We try to download it again here using the exact same name, so it overwrites any corrupt 
-            # or missing files without duplicating the JSON files for the final glob merge!
-            if session_part > 1:
-                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part-1}.json 2>/dev/null", shell=True)
+        def log_status(msg):
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [{board_name}] {msg}")
+            
+        log_status(f"Deploying to {user}@{host}... Live logs at: {log_file}")
+        
+        # Cleanup any old parts from previous runs
+        for f in glob.glob(f".report_part_{board_name}_*.json"):
+            os.remove(f)
+            
+        session_part = 1
+        
+        with open(log_file, "w") as log:
+            log_status("Installing OS dependencies...")
+            os_deps_cmd = f"ssh {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
+            subprocess.run(os_deps_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
+            
+            log_status("Syncing code to target...")
+            sync_cmd = f"tar --exclude='venv' --exclude='__pycache__' --exclude='.pytest_cache' -czf - . | ssh {user}@{host} 'mkdir -p {remote_dir} && cd {remote_dir} && tar -xzf -'"
+            subprocess.run(sync_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
+            
+            log_status("Configuring Python Environment...")
+            setup_cmd = f"ssh {user}@{host} 'cd {remote_dir} && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt'"
+            subprocess.run(setup_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
+            
+            subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True, stdout=log, stderr=subprocess.STDOUT)
+            
+            log_status("Executing test suite in continuous session mode...")
+            while True:
+                # Wait for board to be online before starting
+                board_online = False
+                for _ in range(36): # 3 minutes
+                    ping_proc = subprocess.run(f"ssh -o ConnectTimeout=3 {user}@{host} 'echo ready'", shell=True, capture_output=True)
+                    if ping_proc.returncode == 0:
+                        board_online = True
+                        break
+                    time.sleep(5)
+                    
+                if not board_online:
+                    log_status("ERROR: Board failed to come online. Aborting run.")
+                    return board_name, 1
+                    
+                if session_part > 1:
+                    subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part-1}.json 2>/dev/null", shell=True)
 
-            run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s -o asyncio_default_fixture_loop_scope=function'"
-            test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            
-            for line in test_proc.stdout:
-                sys.stdout.write(line)
-                log.write(line)
-                log.flush()
-            test_proc.wait()
-            
-            # ALWAYS attempt to pull the partial JSON report (if pytest wrote it before exiting)
-            subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{session_part}.json 2>/dev/null", shell=True)
-            
-            if test_proc.returncode in (2, 255):
-                print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered).")
+                run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s -o asyncio_default_fixture_loop_scope=function'"
+                test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 
-                # If it was a graceful scheduled reboot (Code 2), the background script is still waiting to reboot.
-                # We must wait for it to actually drop the network before we try to check if it's back online!
-                if test_proc.returncode == 2:
-                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]    Allowing 20 seconds for the scheduled reboot to take down the network...")
-                    time.sleep(20)
+                for line in test_proc.stdout:
+                    log.write(line)
+                    log.flush()
+                test_proc.wait()
+                
+                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part}.json 2>/dev/null", shell=True)
+                
+                if test_proc.returncode in (2, 255):
+                    log_status(f"Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered). Waiting to recover...")
+                    if test_proc.returncode == 2:
+                        time.sleep(20)
+                    session_part += 1
+                    continue
+                else:
+                    log_status("Pulling final HTML and XML test reports...")
+                    subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/pytest_html_report_{board_name} 2>/dev/null", shell=True)
+                    subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/test-results_{board_name}.xml 2>/dev/null", shell=True)
                     
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Waiting for Pi to recover before resuming tests...")
-                session_part += 1
-                continue # Loop back and resume the remaining tests
-            else:
-                # Finished normally (0 = pass, 1 = fail)
-                print("\n" + "="*60)
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Pulling final HTML and XML test reports from Pi...")
-                subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/ 2>/dev/null", shell=True)
-                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/ 2>/dev/null", shell=True)
-                
-                # Merge JSON parts
-                json_out_file = ".report.json"
-                parts = sorted(glob.glob(".report_part_*.json"))
-                merged = None
-                
-                for part in parts:
-                    try:
-                        with open(part, "r") as f:
-                            data = json.load(f)
-                        if merged is None:
-                            merged = data
-                        else:
-                            merged["duration"] += data.get("duration", 0)
-                            for k, v in data.get("summary", {}).items():
-                                if k == "collected":
-                                    merged.setdefault("summary", {})[k] = max(merged.get("summary", {}).get(k, 0), v)
-                                else:
-                                    merged.setdefault("summary", {})[k] = merged.get("summary", {}).get(k, 0) + v
-                            merged.setdefault("tests", []).extend(data.get("tests", []))
-                    except Exception:
-                        pass
+                    parts = sorted(glob.glob(f".report_part_{board_name}_*.json"))
+                    merged = None
+                    for part in parts:
+                        try:
+                            with open(part, "r") as f:
+                                data = json.load(f)
+                            if merged is None:
+                                merged = data
+                            else:
+                                merged["duration"] += data.get("duration", 0)
+                                for k, v in data.get("summary", {}).items():
+                                    if k == "collected":
+                                        merged.setdefault("summary", {})[k] = max(merged.get("summary", {}).get(k, 0), v)
+                                    else:
+                                        merged.setdefault("summary", {})[k] = merged.get("summary", {}).get(k, 0) + v
+                                    merged.setdefault("tests", []).extend(data.get("tests", []))
+                        except Exception:
+                            pass
+                            
+                    if merged:
+                        with open(json_out_file, "w") as f:
+                            json.dump(merged, f, indent=2)
                         
-                if merged:
-                    with open(json_out_file, "w") as f:
-                        json.dump(merged, f, indent=2)
-                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Unified JSON Report saved to: {json_out_file}")
+                    for part in parts:
+                        os.remove(part)
                     
-                for part in parts:
-                    os.remove(part)
+                    log_status("Remote execution complete.")
+                    return board_name, test_proc.returncode
+
+    overall_exit_code = 0
+    with ThreadPoolExecutor(max_workers=len(target_boards)) as executor:
+        futures = [executor.submit(execute_on_board, b) for b in target_boards]
+        for future in futures:
+            board_name, rc = future.result()
+            if rc != 0:
+                overall_exit_code = 1
                 
-                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Remote execution complete. Host log saved: {log_file}")
-                
-                if os.path.exists("agent.py"):
-                    print("\n" + "="*60)
-                    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  Launching Autonomous AI Agent for Analysis...")
-                    subprocess.run(["python3", "agent.py"])
-                
-                sys.exit(0 if test_proc.returncode == 0 else 1)
+    if os.path.exists("agent.py"):
+        print("\\n" + "="*60)
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Launching Autonomous AI Agent for Analysis...")
+        subprocess.run(["python3", "agent.py"])
+        
+    sys.exit(overall_exit_code)
 
 
 # --- Hardware Fixtures (Executed only on the Pi) ---

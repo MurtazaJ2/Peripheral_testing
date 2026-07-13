@@ -28,7 +28,8 @@ def load_pytest_report(state: AgentState) -> AgentState:
     """Reads the JSON output from the latest Pytest run."""
     print("[INFO]  [Agent] Analyzing Pytest Report...")
     try:
-        with open(".report.json", "r") as f:
+        report_file = state.get("report_file", ".report.json")
+        with open(report_file, "r") as f:
             report = json.load(f)
             
         failed_tests = [
@@ -37,7 +38,7 @@ def load_pytest_report(state: AgentState) -> AgentState:
         ]
         return {"pytest_report": report, "failed_tests": failed_tests}
     except FileNotFoundError:
-        print("[WARN]  [Agent] No .report.json found! Ensure tests run with --json-report")
+        print(f"[WARN]  [Agent] No {state.get('report_file')} found! Ensure tests run with --json-report")
         return {"pytest_report": {}, "failed_tests": []}
 
 def gather_diagnostics(state: AgentState) -> AgentState:
@@ -49,12 +50,15 @@ def gather_diagnostics(state: AgentState) -> AgentState:
     print("[INFO]  [Agent] Gathering Live Diagnostics from Hardware...")
     
     # Load board config to get SSH credentials
+    board_name = state.get("board_name", "raspberry_pi_5")
     with open("boards.yaml", "r") as f:
-        config = yaml.safe_load(f)["raspberry_pi_5"]
+        configs = yaml.safe_load(f)
+        config = configs.get(board_name, {})
         
-    host = config["remote"]["host"]
-    user = config["remote"]["user"]
-    password = config["remote"].get("password", "")
+    remote = config.get("remote", {})
+    host = remote.get("host", "127.0.0.1")
+    user = remote.get("user", "root")
+    password = remote.get("password", "")
     
     connect_kwargs = {"password": password, "timeout": 5} if password else {"timeout": 5}
     
@@ -136,10 +140,12 @@ def propose_remediation(state: AgentState) -> AgentState:
     report_content += f"\n## Recommended Remediation\n"
     report_content += f"Review the diagnosis above. If this is a software regression, apply the necessary patches. If it is a physical layer issue, check connections and reboot the hardware.\n"
     
-    with open("bsp_rca_report.md", "w") as f:
+    board_name = state.get("board_name", "unknown")
+    report_file = f"bsp_rca_report_{board_name}.md"
+    with open(report_file, "w") as f:
         f.write(report_content)
         
-    print("[PASS]  [Agent] Saved Root Cause Analysis to 'bsp_rca_report.md'")
+    print(f"[PASS]  [Agent] Saved Root Cause Analysis to '{report_file}'")
     return {"suggested_action": "Report Generated"}
 
 # --- Graph Definition ---
@@ -176,6 +182,29 @@ workflow.add_edge("propose_remediation", END)
 app = workflow.compile()
 
 if __name__ == "__main__":
+    import glob
     print("\n[INFO]  Starting Autonomous BSP Validation Agent...")
-    final_state = app.invoke({"board_config": {}})
+    
+    reports = glob.glob(".report_*.json")
+    if not reports:
+        # Fallback if just .report.json exists
+        if os.path.exists(".report.json"):
+            reports = [".report.json"]
+            
+    if not reports:
+        print("[INFO]  No reports found to analyze.")
+        sys.exit(0)
+        
+    for report in reports:
+        board_name = report.replace(".report_", "").replace(".json", "")
+        if board_name == ".report": 
+            board_name = "raspberry_pi_5" # Default if legacy name
+            
+        print(f"\n[INFO]  --- Analyzing Board: {board_name} ({report}) ---")
+        final_state = app.invoke({
+            "board_config": {},
+            "report_file": report,
+            "board_name": board_name
+        })
+        
     print("\n[INFO]  Agent Execution Complete.")

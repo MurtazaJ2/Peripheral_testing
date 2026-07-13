@@ -1,4 +1,4 @@
-raspberry_pi_5:
+raspberry_pi_5: &raspberry_pi_5
   chip: "/dev/gpiochip4"
   out_pin: 17
   in_pin: 27
@@ -36,3 +36,11 @@ raspberry_pi_5:
     host: "192.168.0.207"   
     user: "rpi"             
     password: "rpi"
+
+# Use `<<: *raspberry_pi_5` to instantly inherit all the hardware settings from above!
+# raspberry_pi_5_board2:
+#   <<: *raspberry_pi_5
+#   remote:
+#     host: "[IP_ADDRESS]"   
+#     user: "rpi"             
+#     password: "rpi"
