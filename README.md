@@ -121,4 +121,53 @@ You do not need to manually trigger the AI analyzer. The framework is designed t
 - `requirements.txt`: Python packages installed on the remote board.
 - `agent_requirements.txt`: Python packages installed strictly on the host for AI operations.
 
+---
+
+## ⚙️ Jenkins CI/CD Integration
+
+The framework is fully equipped to run autonomously in a Jenkins CI/CD pipeline using the included `Jenkinsfile`.
+
+### Jenkins Prerequisites
+1. **Java 21:** Ensure Jenkins is running on Java 21 to support the latest LTS updates.
+2. **Plugins:** Install the **Extended Choice Parameter** plugin to support dynamic multi-select dropdowns for boards and test suites.
+
+### Pipeline Configuration
+1. Create a new **Pipeline** job in Jenkins.
+2. Under the **Pipeline** definition, select **Pipeline script from SCM**.
+3. Choose **Git** and enter your repository URL (e.g., `https://github.com/YourOrg/Peripheral_testing.git`).
+4. Set the branch to your target branch (e.g., `*/bsp_vaidation_multi-board_support`).
+5. Ensure the Script Path is `Jenkinsfile`.
+
+### Secure Jenkins Setup (SSH to Target Board)
+Because the automated framework uses `ssh` to deploy and execute on the target board, the `jenkins` background service user must be authorized on the target device via passwordless SSH. 
+
+Run the following commands on your Jenkins host to generate an SSH key for the `jenkins` user and copy it to your Raspberry Pi:
+
+```bash
+# 1. Switch to the jenkins user
+sudo su - jenkins -s /bin/bash
+
+# 2. Generate a new SSH key (press Enter to accept defaults and empty passphrase)
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+
+# 3. Copy the key to the target board (accept the host signature when prompted)
+ssh-copy-id -o StrictHostKeyChecking=no rpi@192.168.0.207
+
+# 4. Exit back to your normal user
+exit
+```
+
+### Dynamic Jenkins Parameters
+When triggering a build via **Build with Parameters**, the `Jenkinsfile` dynamically fetches the available boards by reading `boards.yaml` and scans the repository for `test_*.py` files using the public GitHub API.
+- **BOARD:** Multi-select checkboxes to run tests on one or more boards simultaneously.
+- **TEST_SUITE:** A dropdown to run a specific test file or `all`.
+
+If the dynamic parameters appear empty on the first run, navigate to **Manage Jenkins -> In-process Script Approval** and approve the Groovy scripts.
+
+### Artifacts
+Upon completion (even if tests fail), Jenkins will automatically archive:
+- Live test execution logs (`logs/*.log`)
+- Raw JSON test reports (`.report*.json`)
+- AI-generated Root Cause Analysis Markdown reports (`bsp_rca_report*.md`)
+
 Happy Testing! 🚀

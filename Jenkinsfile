@@ -50,6 +50,12 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
+                    # Move old artifacts to a history folder so they aren't re-archived, but are kept in the workspace
+                    mkdir -p workspace_history/logs
+                    mv .report*.json workspace_history/ 2>/dev/null || true
+                    mv bsp_rca_report*.md workspace_history/ 2>/dev/null || true
+                    mv logs/* workspace_history/logs/ 2>/dev/null || true
+                    
                     # Create and activate virtual environment
                     python3 -m venv venv
                     . venv/bin/activate
