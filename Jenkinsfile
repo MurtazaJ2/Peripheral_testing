@@ -6,13 +6,13 @@ pipeline {
             name: 'BOARD',
             type: 'PT_CHECKBOX',
             groovyScript: '''
-                def yamlFile = new File('/home/murtuza/Desktop/hardware_peripheral_testing/Peripheral_testing/boards.yaml')
                 def boards = ['all']
-                if (yamlFile.exists()) {
-                    def content = yamlFile.text
+                try {
+                    def url = new URL("https://raw.githubusercontent.com/MurtazaJ2/Peripheral_testing/bsp_vaidation_multi-board_support/boards.yaml")
+                    def content = url.text
                     def matcher = content =~ /(?m)^([a-zA-Z0-9_-]+):/
                     matcher.each { match -> boards.add(match[1]) }
-                }
+                } catch (Exception e) {}
                 return boards.unique().join(',')
             ''',
             defaultValue: 'all',
@@ -23,15 +23,16 @@ pipeline {
             name: 'TEST_SUITE',
             type: 'PT_SINGLE_SELECT',
             groovyScript: '''
-                def dir = new File('/home/murtuza/Desktop/hardware_peripheral_testing/Peripheral_testing')
                 def tests = ['all']
-                if (dir.exists()) {
-                    dir.listFiles().each { file ->
+                try {
+                    def url = new URL("https://api.github.com/repos/MurtazaJ2/Peripheral_testing/contents/?ref=bsp_vaidation_multi-board_support")
+                    def json = new groovy.json.JsonSlurper().parseText(url.text)
+                    json.each { file ->
                         if (file.name.startsWith('test_') && file.name.endsWith('.py')) {
                             tests.add(file.name)
                         }
                     }
-                }
+                } catch (Exception e) {}
                 return tests.join(',')
             ''',
             defaultValue: 'all',
