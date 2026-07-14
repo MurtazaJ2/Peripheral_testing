@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'BOARD', choices: ['auto', 'raspberry_pi_5'], description: 'Select the target board profile to validate.')
-        string(name: 'MODEL_NAME', defaultValue: 'openai/gpt-4o', description: 'The LLM model to use for RCA and discovery.')
+        string(name: 'BOARD', defaultValue: 'all', description: 'Specify board(s) to test (e.g., "all", "raspberry_pi_5", "auto", or multiple boards separated by space).')
+        string(name: 'TEST_SUITE', defaultValue: '', description: 'Leave empty to run all tests, or specify a test file (e.g., "test_ethernet.py").')
+        string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
     }
 
     environment {
@@ -37,7 +38,7 @@ pipeline {
                         . venv/bin/activate
                         
                         # Run the BSP hardware validation tests
-                        pytest --board ${BOARD} --json-report
+                        pytest ${TEST_SUITE} --board ${BOARD} --json-report
                     '''
                 }
             }
