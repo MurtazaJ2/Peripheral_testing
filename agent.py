@@ -22,6 +22,8 @@ class AgentState(TypedDict):
     diagnosis: str
     suggested_action: str
     board_config: Dict[str, Any]
+    report_file: str
+    board_name: str
 
 # --- Nodes ---
 
