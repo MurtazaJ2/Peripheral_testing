@@ -5,12 +5,38 @@ pipeline {
         extendedChoice(
             name: 'BOARD',
             type: 'PT_CHECKBOX',
-            value: 'all,auto,raspberry_pi_5,beaglebone',
+            groovyScript: '''
+                def yamlFile = new File('/home/murtuza/Desktop/hardware_peripheral_testing/Peripheral_testing/boards.yaml')
+                def boards = ['all']
+                if (yamlFile.exists()) {
+                    def content = yamlFile.text
+                    def matcher = content =~ /(?m)^([a-zA-Z0-9_-]+):/
+                    matcher.each { match -> boards.add(match[1]) }
+                }
+                return boards.unique().join(',')
+            ''',
             defaultValue: 'all',
             multiSelectDelimiter: ' ',
-            description: 'Select board(s) to test. Check multiple boxes for multi-board execution.'
+            description: 'Select board(s) to test. Options are loaded dynamically from boards.yaml.'
         )
-        string(name: 'TEST_SUITE', defaultValue: '', description: 'Leave empty to run all tests, or specify a test file (e.g., "test_ethernet.py").')
+        extendedChoice(
+            name: 'TEST_SUITE',
+            type: 'PT_SINGLE_SELECT',
+            groovyScript: '''
+                def dir = new File('/home/murtuza/Desktop/hardware_peripheral_testing/Peripheral_testing')
+                def tests = ['all']
+                if (dir.exists()) {
+                    dir.listFiles().each { file ->
+                        if (file.name.startsWith('test_') && file.name.endsWith('.py')) {
+                            tests.add(file.name)
+                        }
+                    }
+                }
+                return tests.join(',')
+            ''',
+            defaultValue: 'all',
+            description: 'Select a specific test suite to run, or "all" to run everything.'
+        )
         string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
     }
 
@@ -44,8 +70,14 @@ pipeline {
                     sh '''
                         . venv/bin/activate
                         
+                        # Handle 'all' test suite selection
+                        TEST_ARG="${TEST_SUITE}"
+                        if [ "$TEST_ARG" = "all" ]; then
+                            TEST_ARG=""
+                        fi
+                        
                         # Run the BSP hardware validation tests
-                        pytest ${TEST_SUITE} --board ${BOARD} --json-report
+                        pytest ${TEST_ARG} --board ${BOARD} --json-report
                     '''
                 }
             }
