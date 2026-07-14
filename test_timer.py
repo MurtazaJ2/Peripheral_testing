@@ -101,7 +101,7 @@ def test_timer_cron(board_config, step_logger):
     step_logger.info("TIMER VALIDATION: CRON TEST")
 
     marker_file = board_config.get("cron_test_marker_file", "/tmp/pytest_cron_test.txt")
-    cron_job = f"* * * * * touch {marker_file}\\n"
+    cron_job = f"* * * * * touch {marker_file}\n"
     
     if os.path.exists(marker_file):
         os.remove(marker_file)

@@ -2,7 +2,14 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'BOARD', defaultValue: 'all', description: 'Specify board(s) to test (e.g., "all", "raspberry_pi_5", "auto", or multiple boards separated by space).')
+        extendedChoice(
+            name: 'BOARD',
+            type: 'PT_CHECKBOX',
+            value: 'all,auto,raspberry_pi_5,beaglebone',
+            defaultValue: 'all',
+            multiSelectDelimiter: ' ',
+            description: 'Select board(s) to test. Check multiple boxes for multi-board execution.'
+        )
         string(name: 'TEST_SUITE', defaultValue: '', description: 'Leave empty to run all tests, or specify a test file (e.g., "test_ethernet.py").')
         string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
     }
