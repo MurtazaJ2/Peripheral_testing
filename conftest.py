@@ -34,8 +34,6 @@ def pytest_cmdline_main(config):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     args = " ".join(config.invocation_params.args)
     
-    import os
-    
     test_name = "all"
     for arg in config.invocation_params.args:
         if not arg.startswith('-'):
