@@ -4,6 +4,7 @@ import sys
 import subprocess
 import os
 from datetime import datetime
+import contextlib
 
 def pytest_addoption(parser):
     """Allows us to pass the board target."""
@@ -75,7 +76,23 @@ def pytest_cmdline_main(config):
             
         session_part = 1
         
-        with open(log_file, "w") as log:
+        @contextlib.contextmanager
+        def host_iperf_server():
+            proc = None
+            if "ethernet" in test_name or "all" in test_name:
+                log_status("Starting iperf3 server on host...")
+                try:
+                    proc = subprocess.Popen(["iperf3", "-s"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except FileNotFoundError:
+                    log_status("[WARN] iperf3 not installed on host.")
+            try:
+                yield
+            finally:
+                if proc:
+                    proc.terminate()
+                    proc.wait()
+        
+        with open(log_file, "w") as log, host_iperf_server():
             log_status("Installing OS dependencies...")
             os_deps_cmd = f"ssh {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
             subprocess.run(os_deps_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
