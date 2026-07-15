@@ -133,7 +133,7 @@ def test_timer_cron(board_config, step_logger):
             time.sleep(wait_time)
 
             assert os.path.exists(marker_file), (
-                f"Cron job failed to create {marker_file} at the minute boundary.\\n"
+                f"Cron job failed to create {marker_file} at the minute boundary.\n"
                 f"Ensure the 'cron' daemon is running on the Pi."
             )
 

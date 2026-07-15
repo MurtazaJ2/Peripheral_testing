@@ -39,7 +39,7 @@ def pytest_cmdline_main(config):
     import glob
     import json
     
-    print(f"\\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Starting concurrent test execution on boards: {', '.join(target_boards)}")
+    print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Starting concurrent test execution on boards: {', '.join(target_boards)}")
     
     def execute_on_board(board_name):
         board = configs.get(board_name)
@@ -156,7 +156,7 @@ def pytest_cmdline_main(config):
                 overall_exit_code = 1
                 
     if os.path.exists("agent.py"):
-        print("\\n" + "="*60)
+        print("\n" + "="*60)
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [INFO]  [HOST] Launching Autonomous AI Agent for Analysis...")
         subprocess.run(["python3", "agent.py"])
         

@@ -25,7 +25,7 @@ pipeline {
             groovyScript: '''
                 def tests = ['all']
                 try {
-                    def url = new URL("https://api.github.com/repos/MurtazaJ2/Peripheral_testing/contents/?ref=bsp_vaidation_multi-board_support")
+                    def url = new URL("https://api.github.com/repos/MurtazaJ2/Peripheral_testing/contents/tests?ref=bsp_vaidation_multi-board_support")
                     def json = new groovy.json.JsonSlurper().parseText(url.text)
                     json.each { file ->
                         if (file.name.startsWith('test_') && file.name.endsWith('.py')) {
@@ -80,7 +80,9 @@ pipeline {
                         # Handle 'all' test suite selection
                         TEST_ARG="${TEST_SUITE}"
                         if [ "$TEST_ARG" = "all" ]; then
-                            TEST_ARG=""
+                            TEST_ARG="tests/"
+                        else
+                            TEST_ARG="tests/${TEST_ARG}"
                         fi
                         
                         # Run the BSP hardware validation tests

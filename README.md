@@ -92,12 +92,12 @@ You can leverage standard `pytest` syntax to run specific test files, individual
 
 **Running a specific test script (e.g., only I2C tests):**
 ```bash
-pytest test_i2c.py --board auto --json-report
+pytest tests/test_i2c.py --board auto --json-report
 ```
 
 **Running a specific test function within a script:**
 ```bash
-pytest test_gpio.py::test_gpio_loopback --board auto --json-report
+pytest tests/test_gpio.py::test_gpio_loopback --board auto --json-report
 ```
 
 ---
@@ -113,7 +113,7 @@ You do not need to manually trigger the AI analyzer. The framework is designed t
 
 ## 📁 Directory Structure Overview
 
-- `test_*.py`: Modular test scripts for specific hardware peripherals (SPI, I2C, UART, PCIe).
+- `tests/test_*.py`: Modular test scripts for specific hardware peripherals (SPI, I2C, UART, PCIe).
 - `conftest.py`: The core test interceptor. Handles remote deployment, syncs logs, manages reboot resilience, and hooks into the AI.
 - `detect_board.py`: The AI-driven hardware topology scanner.
 - `agent.py`: The post-run AI Root Cause Analysis generator.
@@ -158,7 +158,7 @@ exit
 ```
 
 ### Dynamic Jenkins Parameters
-When triggering a build via **Build with Parameters**, the `Jenkinsfile` dynamically fetches the available boards by reading `boards.yaml` and scans the repository for `test_*.py` files using the public GitHub API.
+When triggering a build via **Build with Parameters**, the `Jenkinsfile` dynamically fetches the available boards by reading `boards.yaml` and scans the repository for `tests/test_*.py` files using the public GitHub API.
 - **BOARD:** Multi-select checkboxes to run tests on one or more boards simultaneously.
 - **TEST_SUITE:** A dropdown to run a specific test file or `all`.
 
