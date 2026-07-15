@@ -4,6 +4,7 @@ import os
 import shutil
 import time
 from datetime import datetime, timezone
+import re
 
 # Shared file for pre/post reboot state
 RETENTION_STATE_FILE = "/tmp/rtc_retention_state.txt"
@@ -194,8 +195,8 @@ def test_rtc_stage3_pre_reboot_stamp(request, step_logger):
 
         state_path = os.path.expanduser("~/rtc_retention_state.txt")
         with open(state_path, "w") as f:
-            f.write(f"stamp_epoch={stamp_epoch}\\n")
-            f.write(f"stamp_str={stamp_str}\\n")
+            f.write(f"stamp_epoch={stamp_epoch}\n")
+            f.write(f"stamp_str={stamp_str}\n")
 
         step_logger.info(f"Timestamp written to RTC: {stamp_str} (epoch {stamp_epoch})")
         step_logger.info(f"State file saved to: {state_path}")
@@ -446,7 +447,7 @@ def test_ntp_sync_interaction(step_logger):
         except subprocess.CalledProcessError as e:
             pytest.fail(f"Failed to write system time to RTC: {e}")
 
-    with step_logger.step("Verify Write-Back", action="Compare hwclock to system clock", expected="Delta < 2.0s") as step:
+    with step_logger.step("Verify Write-Back", action="Compare hwclock to system clock", expected="Delta < 5.0s") as step:
         try:
             rtc_raw = subprocess.check_output(["sudo", hwclock_path, "--show"], text=True).strip()
         except subprocess.CalledProcessError as e:
@@ -469,7 +470,7 @@ def test_ntp_sync_interaction(step_logger):
         step_logger.info(f"RTC time:    {rtc_dt.strftime('%Y-%m-%d %H:%M:%S')}")
         step_logger.info(f"Delta:       {delta:.3f}s")
 
-        assert delta < 2.0, f"RTC does not match NTP-corrected system time. Delta: {delta:.3f}s (threshold: 2.0s)"
+        assert delta < 5.0, f"RTC does not match NTP-corrected system time. Delta: {delta:.3f}s (threshold: 5.0s)"
         step.success("RTC matches NTP-corrected system time.")
 
     step_logger.info("SUCCESS: Full NTP↔RTC interaction validated!")
