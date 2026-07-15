@@ -36,11 +36,8 @@ On your laptop/PC, create a virtual environment and install the required depende
 python3 -m venv venv
 source venv/bin/activate
 
-# Install testing dependencies
+# Install all dependencies (Test + AI Agent)
 pip install -r requirements.txt
-
-# Install AI Agent dependencies
-pip install -r agent_requirements.txt
 ```
 
 ### 2. Configure Environment Variables
@@ -118,8 +115,7 @@ You do not need to manually trigger the AI analyzer. The framework is designed t
 - `detect_board.py`: The AI-driven hardware topology scanner.
 - `agent.py`: The post-run AI Root Cause Analysis generator.
 - `boards.yaml`: The central repository for board-specific hardware pinouts and SSH credentials.
-- `requirements.txt`: Python packages installed on the remote board.
-- `agent_requirements.txt`: Python packages installed strictly on the host for AI operations.
+- `requirements.txt`: Python packages installed on the remote board and host.
 
 ---
 

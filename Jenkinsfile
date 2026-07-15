@@ -60,11 +60,8 @@ pipeline {
                     python3 -m venv venv
                     . venv/bin/activate
                     
-                    # Install testing dependencies
+                    # Install all dependencies (Test + AI Agent)
                     pip install -r requirements.txt
-                    
-                    # Install AI Agent dependencies
-                    pip install -r agent_requirements.txt
                 '''
             }
         }
