@@ -108,7 +108,7 @@ def pytest_cmdline_main(config):
                 if session_part > 1:
                     subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part-1}.json 2>/dev/null", shell=True)
 
-                run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} -v -s -o asyncio_default_fixture_loop_scope=function'"
+                run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} --tb=short -v -s -o asyncio_default_fixture_loop_scope=function'"
                 test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 
                 for line in test_proc.stdout:
