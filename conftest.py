@@ -34,6 +34,19 @@ def pytest_cmdline_main(config):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     args = " ".join(config.invocation_params.args)
     
+    import os
+    
+    test_name = "all"
+    for arg in config.invocation_params.args:
+        if not arg.startswith('-'):
+            basename = os.path.basename(arg)
+            if basename.startswith("test_") and basename.endswith(".py"):
+                test_name = basename[5:-3] # Extract 'ethernet' from 'test_ethernet.py'
+                break
+            elif basename.endswith(".py"):
+                test_name = basename[:-3]
+                break
+
     from concurrent.futures import ThreadPoolExecutor
     import time
     import glob
@@ -50,7 +63,7 @@ def pytest_cmdline_main(config):
         host = board["remote"]["host"]
         user = board["remote"]["user"]
         remote_dir = f"~/hw-val-framework"
-        log_file = f"logs/run_{board_name}_{timestamp}.log"
+        log_file = f"logs/{test_name}_{board_name}.log"
         json_out_file = f".report_{board_name}.json"
         
         def log_status(msg):
