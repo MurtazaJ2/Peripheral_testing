@@ -38,9 +38,9 @@ raspberry_pi_5: &raspberry_pi_5
     password: "rpi"
 
 # Use `<<: *raspberry_pi_5` to instantly inherit all the hardware settings from above!
-# raspberry_pi_5_board2:
-#   <<: *raspberry_pi_5
-#   remote:
-#     host: "[IP_ADDRESS]"   
-#     user: "rpi"             
-#     password: "rpi"
+raspberry_pi_4_board2:
+  <<: *raspberry_pi_5
+  remote:
+    host: "192.168.1.150"   
+    user: "rpi4"             
+    password: "moschip@123"
