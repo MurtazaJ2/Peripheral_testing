@@ -94,25 +94,25 @@ def pytest_cmdline_main(config):
         
         with open(log_file, "w") as log, host_iperf_server():
             log_status("Installing OS dependencies...")
-            os_deps_cmd = f"ssh {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
+            os_deps_cmd = f"ssh -o StrictHostKeyChecking=no {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
             subprocess.run(os_deps_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
             
             log_status("Syncing code to target...")
-            sync_cmd = f"tar --exclude='venv' --exclude='__pycache__' --exclude='.pytest_cache' -czf - . | ssh {user}@{host} 'mkdir -p {remote_dir} && cd {remote_dir} && tar -xzf -'"
+            sync_cmd = f"tar --exclude='venv' --exclude='__pycache__' --exclude='.pytest_cache' -czf - . | ssh -o StrictHostKeyChecking=no {user}@{host} 'mkdir -p {remote_dir} && cd {remote_dir} && tar -xzf -'"
             subprocess.run(sync_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
             
             log_status("Configuring Python Environment...")
-            setup_cmd = f"ssh {user}@{host} 'cd {remote_dir} && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt'"
+            setup_cmd = f"ssh -o StrictHostKeyChecking=no {user}@{host} 'cd {remote_dir} && python3 -m venv venv && source venv/bin/activate && pip install -q -r requirements.txt'"
             subprocess.run(setup_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
             
-            subprocess.run(f"ssh {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True, stdout=log, stderr=subprocess.STDOUT)
+            subprocess.run(f"ssh -o StrictHostKeyChecking=no {user}@{host} 'rm -f {remote_dir}/pytest_attempted.txt'", shell=True, stdout=log, stderr=subprocess.STDOUT)
             
             log_status("Executing test suite in continuous session mode...")
             while True:
                 # Wait for board to be online before starting
                 board_online = False
                 for _ in range(36): # 3 minutes
-                    ping_proc = subprocess.run(f"ssh -o ConnectTimeout=3 {user}@{host} 'echo ready'", shell=True, capture_output=True)
+                    ping_proc = subprocess.run(f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 {user}@{host} 'echo ready'", shell=True, capture_output=True)
                     if ping_proc.returncode == 0:
                         board_online = True
                         break
@@ -123,9 +123,9 @@ def pytest_cmdline_main(config):
                     return board_name, 1
                     
                 if session_part > 1:
-                    subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part-1}.json 2>/dev/null", shell=True)
+                    subprocess.run(f"scp -o StrictHostKeyChecking=no -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part-1}.json 2>/dev/null", shell=True)
 
-                run_cmd = f"ssh {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} --tb=short -v -s -o asyncio_default_fixture_loop_scope=function'"
+                run_cmd = f"ssh -o StrictHostKeyChecking=no {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} --tb=short -v -s -o asyncio_default_fixture_loop_scope=function'"
                 test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 
                 for line in test_proc.stdout:
@@ -133,7 +133,7 @@ def pytest_cmdline_main(config):
                     log.flush()
                 test_proc.wait()
                 
-                subprocess.run(f"scp -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part}.json 2>/dev/null", shell=True)
+                subprocess.run(f"scp -o StrictHostKeyChecking=no -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part}.json 2>/dev/null", shell=True)
                 
                 if test_proc.returncode in (2, 255):
                     log_status(f"Pytest Session Halted (Code {test_proc.returncode} - Reboot triggered). Waiting to recover...")
@@ -143,8 +143,8 @@ def pytest_cmdline_main(config):
                     continue
                 else:
                     log_status("Pulling final HTML and XML test reports...")
-                    subprocess.run(f"scp -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/pytest_html_report_{board_name} 2>/dev/null", shell=True)
-                    subprocess.run(f"scp -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/test-results_{board_name}.xml 2>/dev/null", shell=True)
+                    subprocess.run(f"scp -o StrictHostKeyChecking=no -q -r {user}@{host}:{remote_dir}/logs/pytest_html_report ./logs/pytest_html_report_{board_name} 2>/dev/null", shell=True)
+                    subprocess.run(f"scp -o StrictHostKeyChecking=no -q {user}@{host}:{remote_dir}/logs/test-results.xml ./logs/test-results_{board_name}.xml 2>/dev/null", shell=True)
                     
                     parts = sorted(glob.glob(f".report_part_{board_name}_*.json"))
                     merged = None
