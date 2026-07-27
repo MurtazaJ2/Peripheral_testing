@@ -44,3 +44,4 @@ raspberry_pi_4_board2:
     host: "192.168.1.150"   
     user: "rpi4"             
     identity_file: "/var/lib/jenkins/.ssh/id_rsa1"
+    password: "moschip@123"

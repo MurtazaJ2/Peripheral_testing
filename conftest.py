@@ -62,6 +62,7 @@ def pytest_cmdline_main(config):
         host = board["remote"]["host"]
         user = board["remote"]["user"]
         identity_file = board["remote"].get("identity_file")
+        sudo_pass = board["remote"].get("password", "")
         ssh_opts = "-o StrictHostKeyChecking=no"
         if identity_file:
             ssh_opts += f" -i {identity_file}"
@@ -98,7 +99,8 @@ def pytest_cmdline_main(config):
         
         with open(log_file, "w") as log, host_iperf_server():
             log_status("Installing OS dependencies...")
-            os_deps_cmd = f"ssh {ssh_opts} {user}@{host} 'sudo apt-get update && sudo apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
+            sudo_prefix = f"echo '{sudo_pass}' | sudo -S" if sudo_pass else "sudo"
+            os_deps_cmd = f"ssh {ssh_opts} {user}@{host} '{sudo_prefix} apt-get update && {sudo_prefix} apt install -y i2c-tools python3-venv python3-pip gpiod libgpiod-dev speedtest-cli iperf3 pciutils nvme-cli fio'"
             subprocess.run(os_deps_cmd, shell=True, stdout=log, stderr=subprocess.STDOUT)
             
             log_status("Syncing code to target...")
