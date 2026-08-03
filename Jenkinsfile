@@ -25,7 +25,7 @@ pipeline {
             groovyScript: '''
                 def tests = ['all']
                 try {
-                    def url = new URL("https://api.github.com/repos/MurtazaJ2/Peripheral_testing/contents/tests?ref=bsp_vaidation_multi-board_support")
+                    def url = new URL("https://api.github.com/repos/MurtazaJ2/Peripheral_testing/contents/tests?ref=ddr_mac_testsuite_enhancements")
                     def json = new groovy.json.JsonSlurper().parseText(url.text)
                     json.each { file ->
                         if (file.name.startsWith('test_') && file.name.endsWith('.py')) {
