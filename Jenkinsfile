@@ -100,7 +100,7 @@ pipeline {
                         fi
                         
                         # Run the BSP hardware validation tests
-                        pytest ${TEST_ARG} --board "${BOARD}" --json-report
+                        pytest ${TEST_ARG} --board "${BOARD}" -s -v --json-report
                     '''
                 }
             }

@@ -5,6 +5,8 @@ def test_memory_capacity():
     """Validates that system memory is accessible and reports a total capacity > 0 MB."""
     try:
         out = subprocess.check_output(["free", "-m"], text=True)
+        print("\\n[DDR TEST LOG] System Memory (free -m):")
+        print(out.strip())
         # Parse the 'Mem:' line
         mem_line = [line for line in out.splitlines() if line.startswith("Mem:")][0]
         total_mem = int(mem_line.split()[1])
@@ -19,6 +21,13 @@ def test_memory_health():
         # Scan for memory related events
         memory_events = [line for line in out.splitlines() if "ECC" in line.upper() or "DDR" in line.upper()]
         
+        print(f"\\n[DDR TEST LOG] Found {len(memory_events)} memory-related events in dmesg.")
+        if memory_events:
+            print("--- Memory Events (Top 10) ---")
+            for event in memory_events[:10]:
+                print(event)
+            print("------------------------------")
+            
         # Filter for actual errors or failures
         critical_errors = []
         for event in memory_events:
@@ -35,6 +44,10 @@ def test_proc_meminfo():
         with open("/proc/meminfo", "r") as f:
             meminfo = f.read()
             
+        print("\\n[DDR TEST LOG] /proc/meminfo Statistics:")
+        for line in meminfo.splitlines()[:5]:
+            print(line)
+            
         assert "MemTotal:" in meminfo, "MemTotal not found in /proc/meminfo"
         assert "MemFree:" in meminfo, "MemFree not found in /proc/meminfo"
         assert "MemAvailable:" in meminfo, "MemAvailable not found in /proc/meminfo"
@@ -47,6 +60,11 @@ def test_oom_killer_logs():
         out = subprocess.check_output(["dmesg"], text=True)
         oom_events = [line for line in out.splitlines() if "Out of memory" in line or "Killed process" in line]
         
+        print(f"\\n[DDR TEST LOG] OOM Killer checks complete. Found {len(oom_events)} OOM invocations.")
+        if oom_events:
+            for event in oom_events:
+                print(event)
+                
         assert len(oom_events) == 0, f"OOM Killer was invoked, indicating potential memory exhaustion: {oom_events}"
     except Exception as e:
         pytest.fail(f"Failed to check dmesg for OOM logs: {e}")
