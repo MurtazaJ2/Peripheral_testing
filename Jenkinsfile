@@ -72,9 +72,6 @@ pipeline {
         }
         
         stage('Check Machine Status') {
-            when {
-                expression { params.MAC_ADDRESS != null && params.MAC_ADDRESS.trim() != '' }
-            }
             steps {
                 sh '''
                     . venv/bin/activate

@@ -88,20 +88,13 @@ def check_status(ip, credentials_list):
     return False
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Get machine status using its MAC ID")
-    parser.add_argument("mac", help="The MAC address of the target machine (e.g. 00:11:22:33:44:55)")
+    parser = argparse.ArgumentParser(description="Get machine status using its MAC ID or check all known boards.")
+    parser.add_argument("mac", nargs='?', default="", help="Optional: The MAC address. If omitted, checks all boards in boards.yaml")
     args = parser.parse_args()
 
-    ip = get_ip_from_mac(args.mac)
-    if not ip:
-        print(f"[ERROR] Could not resolve MAC address {args.mac} to an IP address on the local network.")
-        print("Ensure the device is powered on, connected to the same network, and has communicated recently.")
-        sys.exit(1)
-        
-    print(f"[PASS] Found IP {ip} for MAC {args.mac}")
-    
     # Load known credentials from boards.yaml
     credentials = []
+    board_hosts = []
     try:
         with open("boards.yaml", "r") as f:
             configs = yaml.safe_load(f)
@@ -111,10 +104,28 @@ if __name__ == "__main__":
                         creds = conf['remote'].copy()
                         if creds not in credentials:
                             credentials.append(creds)
+                        if conf['remote'].get('host'):
+                            board_hosts.append(conf['remote']['host'])
     except FileNotFoundError:
         print("[WARN] boards.yaml not found.")
         
     if not credentials:
         credentials.append({'user': 'root', 'password': ''})
-        
-    check_status(ip, credentials)
+
+    if args.mac:
+        ip = get_ip_from_mac(args.mac)
+        if not ip:
+            print(f"[ERROR] Could not resolve MAC address {args.mac} to an IP address on the local network.")
+            print("Ensure the device is powered on, connected to the same network, and has communicated recently.")
+            sys.exit(1)
+            
+        print(f"[PASS] Found IP {ip} for MAC {args.mac}")
+        check_status(ip, credentials)
+    else:
+        if not board_hosts:
+            print("[INFO] No MAC address provided and no hosts found in boards.yaml to check.")
+        else:
+            print(f"[INFO] No MAC address provided. Checking status for all {len(board_hosts)} board(s) in boards.yaml...")
+            for ip in board_hosts:
+                print(f"\n--- Checking Board at {ip} ---")
+                check_status(ip, credentials)
