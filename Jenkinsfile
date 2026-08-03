@@ -16,7 +16,7 @@ pipeline {
                 return boards.unique().join(',')
             ''',
             defaultValue: 'all',
-            multiSelectDelimiter: ' ',
+            multiSelectDelimiter: ',',
             description: 'Select board(s) to test. Options are loaded dynamically from boards.yaml.'
         )
         extendedChoice(
@@ -39,6 +39,8 @@ pipeline {
             description: 'Select a specific test suite to run, or "all" to run everything.'
         )
         string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
+        string(name: 'MAC_ADDRESS', defaultValue: '', description: 'Optional: Enter a MAC address to check its status. If provided, the pipeline will display its health.')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Check this to ONLY run the MAC status check and skip the validation test suite.')
     }
 
     environment {
@@ -69,7 +71,22 @@ pipeline {
             }
         }
         
+        stage('Check Machine Status') {
+            when {
+                expression { params.MAC_ADDRESS != null && params.MAC_ADDRESS.trim() != '' }
+            }
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    python3 mac_status_checker.py "${MAC_ADDRESS}"
+                '''
+            }
+        }
+        
         stage('Execute Tests') {
+            when {
+                expression { params.SKIP_TESTS == false }
+            }
             steps {
                 // We use catchError to ensure the pipeline continues to the post block even if tests fail,
                 // so that we can capture the .report.json and bsp_rca_report.md files.
@@ -86,7 +103,7 @@ pipeline {
                         fi
                         
                         # Run the BSP hardware validation tests
-                        pytest ${TEST_ARG} --board ${BOARD} --json-report
+                        pytest ${TEST_ARG} --board "${BOARD}" --json-report
                     '''
                 }
             }
