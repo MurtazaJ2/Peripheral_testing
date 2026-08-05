@@ -33,7 +33,7 @@ def get_ip_from_mac(mac):
 
     return None
 
-def check_status(ip, credentials_list):
+def check_status(ip, credentials_list, mac="Unknown"):
     """Attempt SSH and print status."""
     try:
         from fabric import Connection
@@ -42,6 +42,9 @@ def check_status(ip, credentials_list):
         print("[ERROR] fabric module is required. Run 'pip install fabric' (or pip install -r agent_requirements.txt).")
         sys.exit(1)
         
+    power_status = "Offline"
+    sys_status = "N/A"
+    
     for creds in credentials_list:
         user = creds.get('user', 'root')
         password = creds.get('password', '')
@@ -53,39 +56,34 @@ def check_status(ip, credentials_list):
         if identity_file:
             connect_kwargs["key_filename"] = identity_file
             
-        print(f"[INFO] Attempting to connect as {user}@{ip}...")
         try:
-            with Connection(host=ip, user=user, connect_kwargs=connect_kwargs, config=fabric.Config(overrides={'run': {'hide': True}})) as c:
-                result = c.run("uptime && echo '---' && free -m && echo '---' && (cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 'N/A')", warn=True, pty=False)
+            with Connection(host=ip, user=user, connect_kwargs=connect_kwargs, config=fabric.Config(overrides={'run': {'hide': True}}), connect_timeout=5) as c:
+                result = c.run("uptime && echo '---' && free -m | grep Mem && echo '---' && (cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 'N/A')", warn=True, pty=False)
                 
                 if result.ok:
-                    print("\n[PASS] Successfully connected!")
-                    print("="*50)
-                    print("               MACHINE STATUS")
-                    print("="*50)
-                    
+                    power_status = "Online"
                     parts = result.stdout.split('---')
-                    uptime_str = parts[0].strip() if len(parts) > 0 else "Unknown"
-                    mem_str = parts[1].strip() if len(parts) > 1 else "Unknown"
+                    uptime_str = parts[0].strip().replace('\n', ' ') if len(parts) > 0 else "Unknown"
+                    mem_str = parts[1].strip().replace('\n', ' ') if len(parts) > 1 else "Unknown"
                     temp_raw = parts[2].strip() if len(parts) > 2 else "N/A"
                     
-                    print(f"\n[UPTIME & LOAD]\n{uptime_str}")
-                    print(f"\n[MEMORY USAGE (MB)]\n{mem_str}")
-                    
                     if temp_raw != 'N/A' and temp_raw.isdigit():
-                        temp_c = int(temp_raw) / 1000.0
-                        print(f"\n[TEMPERATURE]\n{temp_c:.1f} °C")
+                        temp_c = f"{int(temp_raw) / 1000.0:.1f} °C"
                     else:
-                        print(f"\n[TEMPERATURE]\nNot available")
+                        temp_c = "Not available"
                         
-                    print("="*50)
-                    return True
-        except Exception as e:
-            print(f"[WARN] Connection failed: {e}")
+                    sys_status = f"\n  [Uptime & Load] {uptime_str}\n  [Memory Usage (MB)] {mem_str}\n  [Temperature] {temp_c}"
+                    break
+        except Exception:
             continue
             
-    print("\n[FAIL] Could not connect to the machine with any known credentials.")
-    return False
+    print("==================================================")
+    print(f"IP address: {ip}")
+    print(f"Machine address: {mac}")
+    print(f"Power On status: {power_status}")
+    print(f"System hardware and software status: {sys_status}")
+    print("==================================================")
+    return power_status == "Online"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get machine status using its MAC ID or check all known boards.")
@@ -115,12 +113,15 @@ if __name__ == "__main__":
     if args.mac:
         ip = get_ip_from_mac(args.mac)
         if not ip:
-            print(f"[ERROR] Could not resolve MAC address {args.mac} to an IP address on the local network.")
-            print("Ensure the device is powered on, connected to the same network, and has communicated recently.")
+            print("==================================================")
+            print("IP address: Unknown")
+            print(f"Machine address: {args.mac}")
+            print("Power On status: Offline")
+            print("System hardware and software status: N/A")
+            print("==================================================")
             sys.exit(1)
             
-        print(f"[PASS] Found IP {ip} for MAC {args.mac}")
-        check_status(ip, credentials)
+        check_status(ip, credentials, mac=args.mac)
     else:
         if not board_hosts:
             print("[INFO] No MAC address provided and no hosts found in boards.yaml to check.")
