@@ -148,16 +148,21 @@ if __name__ == "__main__":
             
         # Dynamically update boards.yaml if a specific board was targeted
         if args.board and args.board != "all":
-            try:
-                with open("boards.yaml", "r") as f:
-                    configs = yaml.safe_load(f)
-                if configs and args.board in configs and isinstance(configs[args.board], dict) and 'remote' in configs[args.board]:
-                    configs[args.board]['remote']['host'] = ip
-                    with open("boards.yaml", "w") as f:
-                        yaml.dump(configs, f, default_flow_style=False)
-                    print(f"[INFO] Successfully updated boards.yaml: {args.board} is now pointing to {ip}")
-            except Exception as e:
-                print(f"[WARN] Could not update boards.yaml: {e}")
+            target_boards = [b.strip() for b in args.board.split(',')]
+            if len(target_boards) > 1:
+                print(f"[WARN] Multiple boards selected ({args.board}) but only one MAC address provided. Skipping dynamic IP update in boards.yaml.")
+            else:
+                target_board = target_boards[0]
+                try:
+                    with open("boards.yaml", "r") as f:
+                        configs = yaml.safe_load(f)
+                    if configs and target_board in configs and isinstance(configs[target_board], dict) and 'remote' in configs[target_board]:
+                        configs[target_board]['remote']['host'] = ip
+                        with open("boards.yaml", "w") as f:
+                            yaml.dump(configs, f, default_flow_style=False)
+                        print(f"[INFO] Successfully updated boards.yaml: {target_board} is now pointing to {ip}")
+                except Exception as e:
+                    print(f"[WARN] Could not update boards.yaml: {e}")
                 
         if check_status(ip, credentials, mac=args.mac):
             any_online = True
