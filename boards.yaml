@@ -36,6 +36,7 @@ raspberry_pi_5: &raspberry_pi_5
     host: "192.168.0.33"   
     user: "rpi"             
     password: "rpi"
+    mac: "2c:cf:67:60:8a:3e"
 
 # Use `<<: *raspberry_pi_5` to instantly inherit all the hardware settings from above!
 raspberry_pi_4_board2:
