@@ -77,12 +77,21 @@ def check_status(ip, credentials_list, mac="Unknown"):
         except Exception:
             continue
             
-    print("==================================================")
-    print(f"IP address: {ip}")
-    print(f"Machine address: {mac}")
-    print(f"Power On status: {power_status}")
-    print(f"System hardware and software status: {sys_status}")
-    print("==================================================")
+    output = "\n".join([
+        "==================================================",
+        f"IP address: {ip}",
+        f"Machine address: {mac}",
+        f"Power On status: {power_status}",
+        f"System hardware and software status: {sys_status}",
+        "=================================================="
+    ])
+    print(output)
+    
+    try:
+        with open(".logfile", "a") as f:
+            f.write(output + "\n")
+    except Exception as e:
+        print(f"[WARN] Could not write to .logfile: {e}")
     return power_status == "Online"
 
 if __name__ == "__main__":
@@ -114,12 +123,21 @@ if __name__ == "__main__":
     if args.mac:
         ip = get_ip_from_mac(args.mac)
         if not ip:
-            print("==================================================")
-            print("IP address: Unknown")
-            print(f"Machine address: {args.mac}")
-            print("Power On status: Offline")
-            print("System hardware and software status: N/A")
-            print("==================================================")
+            output = "\n".join([
+                "==================================================",
+                "IP address: Unknown",
+                f"Machine address: {args.mac}",
+                "Power On status: Offline",
+                "System hardware and software status: N/A",
+                "=================================================="
+            ])
+            print(output)
+            
+            try:
+                with open(".logfile", "a") as f:
+                    f.write(output + "\n")
+            except Exception as e:
+                print(f"[WARN] Could not write to .logfile: {e}")
             sys.exit(1)
             
         # Dynamically update boards.yaml if a specific board was targeted
