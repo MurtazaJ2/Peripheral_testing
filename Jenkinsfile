@@ -75,14 +75,18 @@ pipeline {
             steps {
                 sh '''
                     . venv/bin/activate
-                    python3 mac_status_checker.py "${MAC_ADDRESS}" --board "${BOARD}"
+                    rm -f machine_is_online.txt
+                    python3 mac_status_checker.py "${MAC_ADDRESS}" --board "${BOARD}" || exit 0
                 '''
             }
         }
         
         stage('Execute Tests') {
             when {
-                expression { params.SKIP_TESTS == false }
+                allOf {
+                    expression { params.SKIP_TESTS == false }
+                    expression { fileExists('machine_is_online.txt') }
+                }
             }
             steps {
                 // We use catchError to ensure the pipeline continues to the post block even if tests fail,

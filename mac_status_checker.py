@@ -122,6 +122,8 @@ if __name__ == "__main__":
     if not credentials:
         credentials.append({'user': 'root', 'password': ''})
 
+    any_online = False
+
     if args.mac:
         ip = get_ip_from_mac(args.mac)
         if not ip:
@@ -142,7 +144,7 @@ if __name__ == "__main__":
                     f.write(output + "\n")
             except Exception as e:
                 print(f"[WARN] Could not write to logs/execution.log: {e}")
-            sys.exit(1)
+            sys.exit(0)
             
         # Dynamically update boards.yaml if a specific board was targeted
         if args.board and args.board != "all":
@@ -157,7 +159,8 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"[WARN] Could not update boards.yaml: {e}")
                 
-        check_status(ip, credentials, mac=args.mac)
+        if check_status(ip, credentials, mac=args.mac):
+            any_online = True
     else:
         if not board_hosts:
             print("[INFO] No MAC address provided and no hosts found in boards.yaml to check.")
@@ -165,4 +168,12 @@ if __name__ == "__main__":
             print(f"[INFO] No MAC address provided. Checking status for all {len(board_hosts)} board(s) in boards.yaml...")
             for ip in board_hosts:
                 print(f"\n--- Checking Board at {ip} ---")
-                check_status(ip, credentials)
+                if check_status(ip, credentials):
+                    any_online = True
+                    
+    if any_online:
+        try:
+            with open("machine_is_online.txt", "w") as f:
+                f.write("online")
+        except Exception:
+            pass
