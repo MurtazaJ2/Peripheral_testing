@@ -88,10 +88,12 @@ def check_status(ip, credentials_list, mac="Unknown"):
     print(output)
     
     try:
-        with open(".logfile", "a") as f:
+        import os
+        os.makedirs("logs", exist_ok=True)
+        with open("logs/execution.log", "a") as f:
             f.write(output + "\n")
     except Exception as e:
-        print(f"[WARN] Could not write to .logfile: {e}")
+        print(f"[WARN] Could not write to logs/execution.log: {e}")
     return power_status == "Online"
 
 if __name__ == "__main__":
@@ -134,10 +136,12 @@ if __name__ == "__main__":
             print(output)
             
             try:
-                with open(".logfile", "a") as f:
+                import os
+                os.makedirs("logs", exist_ok=True)
+                with open("logs/execution.log", "a") as f:
                     f.write(output + "\n")
             except Exception as e:
-                print(f"[WARN] Could not write to .logfile: {e}")
+                print(f"[WARN] Could not write to logs/execution.log: {e}")
             sys.exit(1)
             
         # Dynamically update boards.yaml if a specific board was targeted
