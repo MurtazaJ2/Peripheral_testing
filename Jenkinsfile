@@ -75,7 +75,7 @@ pipeline {
             steps {
                 sh '''
                     . venv/bin/activate
-                    python3 mac_status_checker.py "${MAC_ADDRESS}"
+                    python3 mac_status_checker.py "${MAC_ADDRESS}" --board "${BOARD}"
                 '''
             }
         }

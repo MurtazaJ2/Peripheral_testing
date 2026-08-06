@@ -88,6 +88,7 @@ def check_status(ip, credentials_list, mac="Unknown"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get machine status using its MAC ID or check all known boards.")
     parser.add_argument("mac", nargs='?', default="", help="Optional: The MAC address. If omitted, checks all boards in boards.yaml")
+    parser.add_argument("--board", default="", help="Optional: The name of the board to update in boards.yaml if the IP is found.")
     args = parser.parse_args()
 
     # Load known credentials from boards.yaml
@@ -121,6 +122,19 @@ if __name__ == "__main__":
             print("==================================================")
             sys.exit(1)
             
+        # Dynamically update boards.yaml if a specific board was targeted
+        if args.board and args.board != "all":
+            try:
+                with open("boards.yaml", "r") as f:
+                    configs = yaml.safe_load(f)
+                if configs and args.board in configs and isinstance(configs[args.board], dict) and 'remote' in configs[args.board]:
+                    configs[args.board]['remote']['host'] = ip
+                    with open("boards.yaml", "w") as f:
+                        yaml.dump(configs, f, default_flow_style=False)
+                    print(f"[INFO] Successfully updated boards.yaml: {args.board} is now pointing to {ip}")
+            except Exception as e:
+                print(f"[WARN] Could not update boards.yaml: {e}")
+                
         check_status(ip, credentials, mac=args.mac)
     else:
         if not board_hosts:
