@@ -147,13 +147,6 @@ def pytest_cmdline_main(config):
 
         if resolved_ip:
             host = resolved_ip
-            # Dynamically overwrite boards.yaml for subsequent runs
-            configs[board_name]['remote']['host'] = host
-            try:
-                with open("boards.yaml", "w") as f:
-                    yaml.dump(configs, f, default_flow_style=False)
-            except Exception:
-                pass
             
         # 2. Check machine status and abort if offline
         is_online = check_machine_status(host, user, ssh_opts, mac_addr=used_mac)
