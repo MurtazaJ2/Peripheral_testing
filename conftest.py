@@ -134,9 +134,18 @@ def pytest_cmdline_main(config):
                 run_cmd = f"ssh {ssh_opts} {user}@{host} 'cd {remote_dir} && source venv/bin/activate && export RUNNING_ON_PI=1 && pytest {args} --board={board_name} --tb=short -v -s -o asyncio_default_fixture_loop_scope=function'"
                 test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 
-                for line in test_proc.stdout:
-                    log.write(line)
-                    log.flush()
+                try:
+                    with open(".logfile", "a") as main_log:
+                        for line in test_proc.stdout:
+                            log.write(line)
+                            log.flush()
+                            main_log.write(line)
+                            main_log.flush()
+                except Exception:
+                    for line in test_proc.stdout:
+                        log.write(line)
+                        log.flush()
+                        
                 test_proc.wait()
                 
                 subprocess.run(f"scp {ssh_opts} -q {user}@{host}:{remote_dir}/.report.json .report_part_{board_name}_{session_part}.json 2>/dev/null", shell=True)
