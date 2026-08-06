@@ -128,10 +128,10 @@ def pytest_cmdline_main(config):
         if identity_file:
             ssh_opts += f" -i {identity_file}"
             
-        # 1. Resolve MAC if provided dynamically in Jenkins
-        mac_env = os.environ.get("MAC_ADDRESS", "").strip()
-        if mac_env and len(target_boards) == 1:
-            resolved_ip = get_ip_from_mac(mac_env)
+        # 1. Resolve MAC if provided in boards.yaml
+        mac_addr = board["remote"].get("mac", "").strip()
+        if mac_addr:
+            resolved_ip = get_ip_from_mac(mac_addr)
             if resolved_ip:
                 host = resolved_ip
                 # Dynamically overwrite boards.yaml for subsequent runs
@@ -141,11 +141,9 @@ def pytest_cmdline_main(config):
                         yaml.dump(configs, f, default_flow_style=False)
                 except Exception:
                     pass
-        elif mac_env:
-            print(f"[WARN] MAC_ADDRESS '{mac_env}' provided, but multiple boards are targeted. Skipping dynamic IP update.")
             
         # 2. Check machine status and abort if offline
-        is_online = check_machine_status(host, user, ssh_opts, mac_addr=mac_env)
+        is_online = check_machine_status(host, user, ssh_opts, mac_addr=mac_addr)
         if not is_online:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [WARN]  [{board_name}] Machine is offline. Skipping tests gracefully.")
             return board_name, 0

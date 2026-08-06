@@ -39,7 +39,6 @@ pipeline {
             description: 'Select a specific test suite to run, or "all" to run everything.'
         )
         string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
-        string(name: 'MAC_ADDRESS', defaultValue: '', description: 'Optional: Enter a MAC address to check its status. If provided, the pipeline will display its health.')
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Check this to ONLY run the MAC status check and skip the validation test suite.')
     }
 
@@ -78,8 +77,6 @@ pipeline {
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                     sh '''
                         . venv/bin/activate
-                        
-                        export MAC_ADDRESS="${MAC_ADDRESS}"
                         
                         # Handle 'all' test suite selection
                         TEST_ARG="${TEST_SUITE}"
