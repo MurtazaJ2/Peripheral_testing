@@ -129,21 +129,34 @@ def pytest_cmdline_main(config):
             ssh_opts += f" -i {identity_file}"
             
         # 1. Resolve MAC if provided in boards.yaml
-        mac_addr = board["remote"].get("mac", "").strip()
-        if mac_addr:
-            resolved_ip = get_ip_from_mac(mac_addr)
-            if resolved_ip:
-                host = resolved_ip
-                # Dynamically overwrite boards.yaml for subsequent runs
-                configs[board_name]['remote']['host'] = host
-                try:
-                    with open("boards.yaml", "w") as f:
-                        yaml.dump(configs, f, default_flow_style=False)
-                except Exception:
-                    pass
+        mac_config = board["remote"].get("mac", "")
+        mac_list = [mac_config] if isinstance(mac_config, str) else mac_config
+        
+        resolved_ip = None
+        used_mac = ""
+        if mac_list:
+            for m in mac_list:
+                m_str = str(m).strip()
+                if not m_str:
+                    continue
+                ip = get_ip_from_mac(m_str)
+                if ip:
+                    resolved_ip = ip
+                    used_mac = m_str
+                    break
+
+        if resolved_ip:
+            host = resolved_ip
+            # Dynamically overwrite boards.yaml for subsequent runs
+            configs[board_name]['remote']['host'] = host
+            try:
+                with open("boards.yaml", "w") as f:
+                    yaml.dump(configs, f, default_flow_style=False)
+            except Exception:
+                pass
             
         # 2. Check machine status and abort if offline
-        is_online = check_machine_status(host, user, ssh_opts, mac_addr=mac_addr)
+        is_online = check_machine_status(host, user, ssh_opts, mac_addr=used_mac)
         if not is_online:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [WARN]  [{board_name}] Machine is offline. Skipping tests gracefully.")
             return board_name, 0
