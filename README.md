@@ -9,6 +9,8 @@ The framework is designed to seamlessly run hardware tests (GPIO, I2C, SPI, UART
 ## 🚀 Key Features
 
 - **Zero-Touch Deployment:** The framework automatically packages its code, securely transfers it to the target board over SSH, installs dependencies, and executes the suite natively.
+- **MAC-to-IP Tracking:** Devices often switch between Ethernet (`eth0`) and Wi-Fi (`wlan0`). The framework accepts a `MAC_ADDRESS`, resolves the latest dynamic IP automatically, overwrites the target in `boards.yaml`, and continues testing seamlessly.
+- **Graceful Offline Handling:** If a targeted board is unplugged or offline, the framework intelligently detects the failure *before* running Pytest and gracefully skips the execution stage in Jenkins without aborting the pipeline in red.
 - **AI-Driven Hardware Discovery:** Don't know the GPIO pinout or device tree paths of your custom board? Run `pytest --board auto` and the AI will probe the hardware via SSH to synthesize a safe test configuration.
 - **Agentic RCA (Root Cause Analysis):** If a kernel panic occurs or a peripheral test fails, an autonomous AI Agent kicks in. It pulls `dmesg` logs and interrupt data, analyzes the failure, and generates a standalone Markdown report (`bsp_rca_report.md`).
 - **Reboot-Resilient Tests:** Built-in continuous session mode tracks test progress on the device. If a test triggers a hard reboot or kernel panic, the framework waits for the board to come back online and resumes testing right where it left off!
@@ -113,9 +115,10 @@ You do not need to manually trigger the AI analyzer. The framework is designed t
 
 ## 📁 Directory Structure Overview
 
-- `tests/test_*.py`: Modular test scripts for specific hardware peripherals (SPI, I2C, UART, PCIe).
+- `tests/test_*.py`: Modular test scripts for specific hardware peripherals (DDR Memory, SPI, I2C, UART, PCIe). The DDR suite notably includes comprehensive 10-point profiling for bandwidth, latency, and physical bus aliasing.
 - `conftest.py`: The core test interceptor. Handles remote deployment, syncs logs, manages reboot resilience, and hooks into the AI.
 - `detect_board.py`: The AI-driven hardware topology scanner.
+- `mac_status_checker.py`: Scans the host's ARP tables to dynamically resolve MAC addresses, check system health, and auto-update `boards.yaml`.
 - `agent.py`: The post-run AI Root Cause Analysis generator.
 - `boards.yaml`: The central repository for board-specific hardware pinouts and SSH credentials.
 - `requirements.txt`: Python packages installed on the remote board.
@@ -161,12 +164,13 @@ exit
 When triggering a build via **Build with Parameters**, the `Jenkinsfile` dynamically fetches the available boards by reading `boards.yaml` and scans the repository for `tests/test_*.py` files using the public GitHub API.
 - **BOARD:** Multi-select checkboxes to run tests on one or more boards simultaneously.
 - **TEST_SUITE:** A dropdown to run a specific test file or `all`.
+- **MAC_ADDRESS:** (Optional) Provide the MAC address of the device. The pipeline will dynamically resolve the IP address and execute tests on it.
 
 If the dynamic parameters appear empty on the first run, navigate to **Manage Jenkins -> In-process Script Approval** and approve the Groovy scripts.
 
 ### Artifacts
 Upon completion (even if tests fail), Jenkins will automatically archive:
-- Live test execution logs (`logs/*.log`)
+- Live test execution logs (`logs/execution.log` containing unified machine statuses and detailed Pytest stdout)
 - Raw JSON test reports (`.report*.json`)
 - AI-generated Root Cause Analysis Markdown reports (`bsp_rca_report*.md`)
 
