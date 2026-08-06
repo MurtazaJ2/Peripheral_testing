@@ -71,29 +71,15 @@ pipeline {
             }
         }
         
-        stage('Check Machine Status') {
-            steps {
-                sh '''
-                    . venv/bin/activate
-                    rm -f machine_is_online.txt
-                    python3 mac_status_checker.py "${MAC_ADDRESS}" --board "${BOARD}" || exit 0
-                '''
-            }
-        }
-        
         stage('Execute Tests') {
-            when {
-                allOf {
-                    expression { params.SKIP_TESTS == false }
-                    expression { fileExists('machine_is_online.txt') }
-                }
-            }
             steps {
                 // We use catchError to ensure the pipeline continues to the post block even if tests fail,
                 // so that we can capture the .report.json and bsp_rca_report.md files.
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                     sh '''
                         . venv/bin/activate
+                        
+                        export MAC_ADDRESS="${MAC_ADDRESS}"
                         
                         # Handle 'all' test suite selection
                         TEST_ARG="${TEST_SUITE}"

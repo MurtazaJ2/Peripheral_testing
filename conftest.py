@@ -5,6 +5,67 @@ import subprocess
 import os
 from datetime import datetime
 import contextlib
+import re
+
+def get_ip_from_mac(mac):
+    mac = mac.lower().strip()
+    try:
+        output = subprocess.check_output(["arp", "-a"], text=True)
+        for line in output.split('\n'):
+            if mac in line.lower():
+                match = re.search(r'\((.*?)\)', line)
+                if match:
+                    return match.group(1)
+        output = subprocess.check_output(["ip", "neigh"], text=True)
+        for line in output.split('\n'):
+            if mac in line.lower():
+                parts = line.split()
+                if len(parts) > 0:
+                    return parts[0]
+    except Exception:
+        pass
+    return None
+
+def check_machine_status(host, user, ssh_opts, mac_addr=""):
+    try:
+        ssh_cmd = f"ssh {ssh_opts} -o ConnectTimeout=5 {user}@{host} 'uptime && free -m | grep Mem && cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo N/A'"
+        res = subprocess.run(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if res.returncode == 0:
+            power_status = "Online"
+            lines = res.stdout.strip().split('\n')
+            uptime_str = lines[0] if len(lines) > 0 else "N/A"
+            mem_str = lines[1] if len(lines) > 1 else "N/A"
+            temp_c = "Not available"
+            if len(lines) > 2 and lines[2] != "N/A" and lines[2].isdigit():
+                temp_c = f"{int(lines[2]) / 1000.0:.1f} °C"
+            sys_status = f"\n  [Uptime & Load] {uptime_str}\n  [Memory Usage (MB)] {mem_str}\n  [Temperature] {temp_c}"
+            is_online = True
+        else:
+            power_status = "Offline"
+            sys_status = "N/A"
+            is_online = False
+    except Exception:
+        power_status = "Offline"
+        sys_status = "N/A"
+        is_online = False
+        
+    output = "\n".join([
+        "==================================================",
+        f"IP address: {host}",
+        f"Machine address: {mac_addr if mac_addr else 'Unknown'}",
+        f"Power On status: {power_status}",
+        f"System hardware and software status: {sys_status}",
+        "=================================================="
+    ])
+    print(output)
+    try:
+        os.makedirs("logs", exist_ok=True)
+        with open("logs/execution.log", "a") as f:
+            f.write(output + "\n")
+    except Exception:
+        pass
+    return is_online
+
 
 def pytest_addoption(parser):
     """Allows us to pass the board target."""
@@ -66,6 +127,29 @@ def pytest_cmdline_main(config):
         ssh_opts = "-o StrictHostKeyChecking=no"
         if identity_file:
             ssh_opts += f" -i {identity_file}"
+            
+        # 1. Resolve MAC if provided dynamically in Jenkins
+        mac_env = os.environ.get("MAC_ADDRESS", "").strip()
+        if mac_env and len(target_boards) == 1:
+            resolved_ip = get_ip_from_mac(mac_env)
+            if resolved_ip:
+                host = resolved_ip
+                # Dynamically overwrite boards.yaml for subsequent runs
+                configs[board_name]['remote']['host'] = host
+                try:
+                    with open("boards.yaml", "w") as f:
+                        yaml.dump(configs, f, default_flow_style=False)
+                except Exception:
+                    pass
+        elif mac_env:
+            print(f"[WARN] MAC_ADDRESS '{mac_env}' provided, but multiple boards are targeted. Skipping dynamic IP update.")
+            
+        # 2. Check machine status and abort if offline
+        is_online = check_machine_status(host, user, ssh_opts, mac_addr=mac_env)
+        if not is_online:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [WARN]  [{board_name}] Machine is offline. Skipping tests gracefully.")
+            return board_name, 0
+            
         remote_dir = f"~/hw-val-framework"
         log_file = f"logs/{test_name}_{board_name}.log"
         json_out_file = f".report_{board_name}.json"
