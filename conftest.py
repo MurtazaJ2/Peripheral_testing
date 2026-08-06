@@ -219,8 +219,6 @@ def pytest_cmdline_main(config):
                 test_proc = subprocess.Popen(run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 
                 try:
-                    import os
-                    os.makedirs("logs", exist_ok=True)
                     with open("logs/execution.log", "a") as main_log:
                         for line in test_proc.stdout:
                             log.write(line)
