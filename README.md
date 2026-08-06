@@ -9,7 +9,7 @@ The framework is designed to seamlessly run hardware tests (GPIO, I2C, SPI, UART
 ## 🚀 Key Features
 
 - **Zero-Touch Deployment:** The framework automatically packages its code, securely transfers it to the target board over SSH, installs dependencies, and executes the suite natively.
-- **Dynamic MAC-to-IP Tracking:** Devices often switch between Ethernet (`eth0`) and Wi-Fi (`wlan0`). Simply define a `mac:` field in your `boards.yaml`, and the framework will natively resolve the latest dynamic IP address and seamlessly connect to the target.
+- **MAC-to-IP Tracking:** Devices often switch between Ethernet (`eth0`) and Wi-Fi (`wlan0`). Simply define a `mac:` list in your `boards.yaml` containing both MAC addresses. The framework will natively resolve the active dynamic IP address and seamlessly connect to the target in-memory, without ever overwriting or corrupting your `boards.yaml` structure.
 - **Graceful Offline Handling:** If a targeted board is unplugged or offline, the framework intelligently detects the failure *before* running Pytest and gracefully skips the execution stage in Jenkins without aborting the pipeline in red.
 - **AI-Driven Hardware Discovery:** Don't know the GPIO pinout or device tree paths of your custom board? Run `pytest --board auto` and the AI will probe the hardware via SSH to synthesize a safe test configuration.
 - **Agentic RCA (Root Cause Analysis):** If a kernel panic occurs or a peripheral test fails, an autonomous AI Agent kicks in. It pulls `dmesg` logs and interrupt data, analyzes the failure, and generates a standalone Markdown report (`bsp_rca_report.md`).
@@ -60,7 +60,9 @@ Open `boards.yaml` and ensure there is at least a `remote` configuration block p
 ```yaml
 raspberry_pi_5:
   remote:
-    mac: "2c:cf:67:60:8a:3e" # Optional: For dynamic IP resolution
+    mac: # Optional: Provide a list of MACs to seamlessly handle Ethernet/Wi-Fi switching
+      - "2c:cf:67:60:8a:3e" 
+      - "2c:cf:67:60:8a:3f"
     host: "192.168.0.207"
     user: "rpi"
     password: "rpi"  # Optional, but needed if ssh keys aren't set up
