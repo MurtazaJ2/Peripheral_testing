@@ -38,6 +38,7 @@ pipeline {
             defaultValue: 'all',
             description: 'Select a specific test suite to run, or "all" to run everything.'
         )
+        string(name: 'TEST_CASE', defaultValue: 'all', description: 'Enter a specific testcase to run (e.g. test_uart_loopback) from the selected TEST_SUITE, or "all" to run everything in the file.')
         string(name: 'MODEL_NAME', defaultValue: 'google/gemma-4-26b-a4b-it:free', description: 'The LLM model to use for RCA and discovery.')
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Check this to ONLY run the MAC status check and skip the validation test suite.')
     }
@@ -84,6 +85,17 @@ pipeline {
                             TEST_ARG="tests/"
                         else
                             TEST_ARG="tests/${TEST_ARG}"
+                        fi
+                        
+                        # Add TEST_CASE if provided
+                        if [ -n "${TEST_CASE}" ] && [ "${TEST_CASE}" != "all" ]; then
+                            if [ "${TEST_SUITE}" != "all" ]; then
+                                # Run a specific test case within a specific file
+                                TEST_ARG="${TEST_ARG}::${TEST_CASE}"
+                            else
+                                # If they selected 'all' for test suite but gave a test case name, use pytest -k
+                                TEST_ARG="${TEST_ARG} -k ${TEST_CASE}"
+                            fi
                         fi
                         
                         # Run the BSP hardware validation tests
